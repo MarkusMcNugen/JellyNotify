@@ -693,6 +693,151 @@ def get_logger(name: str = "jellynouncer") -> logging.Logger:
     return logger
 
 
+def setup_web_logging(log_level: str = "INFO", log_dir: str = "/app/logs") -> logging.Logger:
+    """
+    Set up separate logging for web components (web interface and client logs).
+    
+    This function creates a dedicated logger for web-related components that writes
+    to jellynouncer-web.log instead of the main jellynouncer.log file. This separation
+    allows for easier debugging of web-specific issues and keeps client-side logs
+    distinct from the main webhook processing logs.
+    
+    Args:
+        log_level (str): Python logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        log_dir (str): Directory path where log files will be stored
+        
+    Returns:
+        logging.Logger: Configured logger instance for web components
+        
+    Example:
+        ```python
+        # In web_api.py
+        web_logger = setup_web_logging("INFO", "/app/logs")
+        web_logger.info("Web interface started")
+        
+        # For client logs
+        client_logger = logging.getLogger("jellynouncer.web_client")
+        client_logger.info("Client log received")
+        ```
+    """
+    # Validate log level
+    valid_levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+    log_level_upper = log_level.upper()
+    if log_level_upper not in valid_levels:
+        raise ValueError(f"Invalid log level '{log_level}'. Must be one of: {valid_levels}")
+    
+    numeric_level = getattr(logging, log_level_upper)
+    
+    # Create logs directory if it doesn't exist
+    log_path = Path(log_dir)
+    try:
+        log_path.mkdir(parents=True, exist_ok=True)
+    except PermissionError as e:
+        raise PermissionError(f"Cannot create log directory '{log_dir}': {e}")
+    
+    # Simple formatter for web logs (no colors in file)
+    class SimpleWebFormatter(logging.Formatter):
+        """Simple formatter for web logs."""
+        def format(self, record):
+            timestamp = datetime.fromtimestamp(
+                record.created,
+                tz=timezone.utc
+            ).strftime('%Y-%m-%d %H:%M:%S UTC')
+            
+            return f"[{timestamp}][{record.levelname}][{record.name}] {record.getMessage()}"
+    
+    # Get or create the web logger
+    web_logger = logging.getLogger("jellynouncer.web")
+    
+    # Only configure if not already configured
+    if not web_logger.handlers:
+        web_logger.setLevel(numeric_level)
+        
+        # Create file handler for web logs
+        web_log_file = log_path / "jellynouncer-web.log"
+        try:
+            web_file_handler = logging.handlers.RotatingFileHandler(
+                filename=web_log_file,
+                maxBytes=10 * 1024 * 1024,  # 10MB per file
+                backupCount=5,  # Keep 5 backup files
+                encoding='utf-8',
+                mode='a'
+            )
+            web_file_handler.setLevel(numeric_level)
+            
+            # Use simple formatter for web logs
+            formatter = SimpleWebFormatter()
+            web_file_handler.setFormatter(formatter)
+            web_logger.addHandler(web_file_handler)
+            
+        except (OSError, IOError) as e:
+            print(f"ERROR: Failed to create web log file handler: {e}")
+            raise
+        
+        # Also add console handler if in debug mode
+        if log_level_upper == 'DEBUG':
+            console_handler = logging.StreamHandler()
+            console_handler.setLevel(logging.DEBUG)
+            
+            # Use simple formatter for console as well (web logs don't need fancy colors)
+            console_formatter = SimpleWebFormatter()
+            console_handler.setFormatter(console_formatter)
+            web_logger.addHandler(console_handler)
+        
+        # Prevent propagation to root logger to avoid duplicate logs
+        web_logger.propagate = False
+        
+        web_logger.info(f"Web logging initialized - Level: {log_level_upper}, File: {web_log_file}")
+    
+    return web_logger
+
+
+def get_web_logger(name: str = "jellynouncer.web") -> logging.Logger:
+    """
+    Get a logger instance for web components.
+    
+    This function retrieves a logger that writes to jellynouncer-web.log.
+    If the logger hasn't been set up yet, it will be configured automatically.
+    
+    Args:
+        name (str): Logger name (should start with "jellynouncer.web")
+        
+    Returns:
+        logging.Logger: Logger instance for web components
+        
+    Example:
+        ```python
+        # For web API endpoints
+        logger = get_web_logger("jellynouncer.web_api")
+        
+        # For client logs
+        logger = get_web_logger("jellynouncer.web_client")
+        ```
+    """
+    # Ensure the web logger is set up
+    if not logging.getLogger("jellynouncer.web").handlers:
+        # Get log level from environment or use INFO as default
+        log_level = os.environ.get("LOG_LEVEL", "INFO")
+        log_dir = os.environ.get("LOG_DIR", "/app/logs")
+        
+        # If running outside Docker, use local logs directory
+        if not os.path.exists('/.dockerenv'):
+            log_dir = "logs"
+        
+        setup_web_logging(log_level, log_dir)
+    
+    # Get the specific logger
+    logger = logging.getLogger(name)
+    
+    # Ensure child loggers inherit from parent web logger
+    if name.startswith("jellynouncer.web") and name != "jellynouncer.web":
+        parent_logger = logging.getLogger("jellynouncer.web")
+        if parent_logger.handlers and not logger.handlers:
+            logger.parent = parent_logger
+    
+    return logger
+
+
 def format_bytes(bytes_value: int) -> str:
     """
     Format byte count into human-readable string with appropriate units.

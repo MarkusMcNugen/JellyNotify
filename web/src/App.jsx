@@ -7,16 +7,33 @@ import Config from './pages/Config'
 import Templates from './pages/Templates'
 import Logs from './pages/Logs'
 import { useEffect, useState } from 'react'
+import logger from './services/logger'
 
 function App() {
   const { isAuthenticated, authRequired, checkAuth } = useAuthStore()
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Log app initialization
+    logger.info('Jellynouncer Web Interface initializing', {
+      version: '1.0.0',
+      environment: import.meta.env.MODE
+    })
+    
     // Check if user is authenticated on app load
     const initAuth = async () => {
       try {
+        logger.debug('Checking authentication status')
         await checkAuth()
+        logger.debug('Authentication check completed', {
+          authRequired,
+          isAuthenticated
+        })
+      } catch (error) {
+        logger.error('Authentication check failed', {
+          error: error.message,
+          stack: error.stack
+        })
       } finally {
         setLoading(false)
       }
@@ -35,8 +52,19 @@ function App() {
 
   // Only show login if auth is required and user is not authenticated
   if (authRequired && !isAuthenticated) {
+    logger.debug('Showing login page - authentication required')
     return <Login />
   }
+
+  // Log successful app load
+  useEffect(() => {
+    if (!loading) {
+      logger.info('App loaded successfully', {
+        authRequired,
+        isAuthenticated
+      })
+    }
+  }, [loading, authRequired, isAuthenticated])
 
   return (
     <Layout>

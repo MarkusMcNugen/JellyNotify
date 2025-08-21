@@ -52,7 +52,7 @@ import bcrypt
 
 # Import Jellynouncer modules
 from jellynouncer.config_models import ConfigurationValidator
-from jellynouncer.utils import get_logger
+from jellynouncer.utils import get_logger, get_web_logger, setup_web_logging
 from jellynouncer.webhook_service import WebhookService
 from jellynouncer.ssl_manager import SSLManager, setup_ssl_routes
 from jellynouncer.security_middleware import setup_security_middleware
@@ -77,8 +77,8 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # JWT token handler
 security = HTTPBearer()
 
-# Logger setup with extensive debug logging
-logger = get_logger("jellynouncer.web_api")
+# Logger setup with extensive debug logging - uses separate web log file
+logger = get_web_logger("jellynouncer.web_api")
 
 
 # ==================== Pydantic Models ====================
@@ -133,6 +133,24 @@ class LogQuery(BaseModel):
     search: Optional[str] = None
 
 
+class ClientLogEntry(BaseModel):
+    """Model for individual client log entry"""
+    timestamp: str
+    level: str
+    sessionId: str
+    url: str
+    message: str
+    metadata: Optional[Dict[str, Any]] = {}
+    userAgent: Optional[str] = None
+
+
+class ClientLogBatch(BaseModel):
+    """Model for batch of client logs"""
+    logs: List[ClientLogEntry]
+    sessionId: str
+    timestamp: str
+
+
 class OverviewStats(BaseModel):
     """Model for overview statistics"""
     total_items: int
@@ -151,7 +169,7 @@ class WebDatabaseManager:
     
     def __init__(self, db_path: str = WEB_DB_PATH):
         self.db_path = db_path
-        self.logger = get_logger("jellynouncer.web_db")
+        self.logger = get_web_logger("jellynouncer.web_db")
         self.logger.debug(f"Initializing WebDatabaseManager with path: {db_path}")
         
     async def initialize(self):
@@ -435,7 +453,7 @@ class WebInterfaceService:
         self.config = None
         self.web_db = WebDatabaseManager()
         self.ssl_manager = SSLManager(WEB_DB_PATH)
-        self.logger = get_logger("jellynouncer.web_interface")
+        self.logger = get_web_logger("jellynouncer.web_interface")
         self.logger.debug("Initializing WebInterfaceService")
         
         if webhook_service:
@@ -831,8 +849,17 @@ web_service = WebInterfaceService()
 @asynccontextmanager
 async def lifespan(app_instance: FastAPI):
     """Manage application lifecycle"""
+    # Initialize web logging first
+    log_level = os.environ.get("LOG_LEVEL", "INFO")
+    log_dir = os.environ.get("LOG_DIR", "/app/logs")
+    if not os.path.exists('/.dockerenv'):
+        log_dir = "logs"
+    
+    setup_web_logging(log_level, log_dir)
+    
     # Startup
     logger.info("Starting Jellynouncer Web Interface...")
+    logger.info(f"Web logs will be written to {log_dir}/jellynouncer-web.log")
     await web_service.initialize()
     
     # Setup SSL routes
@@ -1277,6 +1304,67 @@ async def get_logs(log_query: LogQuery, current_user: Optional[Dict] = Depends(c
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@app.post("/api/logs/client")
+async def receive_client_logs(log_batch: ClientLogBatch):
+    """
+    Receive and process client-side logs from the React frontend.
+    
+    This endpoint accepts batched logs from the browser and writes them
+    to the main jellynouncer.log file with proper formatting to distinguish
+    them from server-side logs.
+    
+    Client logs are written with a [CLIENT] prefix and include session ID
+    for correlation with user sessions.
+    
+    Note: This endpoint doesn't require authentication to ensure critical
+    error logs can always be sent.
+    """
+    try:
+        client_logger = get_web_logger("jellynouncer.web_client")
+        
+        # Process each log entry
+        for log_entry in log_batch.logs:
+            # Format the client log message with session context
+            formatted_message = f"[CLIENT] [{log_entry.sessionId[:8]}] {log_entry.url} - {log_entry.message}"
+            
+            # Add metadata if present
+            if log_entry.metadata:
+                formatted_message += f" | Metadata: {json.dumps(log_entry.metadata)}"
+            
+            # Log at appropriate level
+            level = log_entry.level.upper()
+            if level == "DEBUG":
+                client_logger.debug(formatted_message)
+            elif level == "INFO":
+                client_logger.info(formatted_message)
+            elif level == "WARN" or level == "WARNING":
+                client_logger.warning(formatted_message)
+            elif level == "ERROR":
+                client_logger.error(formatted_message)
+            else:
+                # Default to info for unknown levels
+                client_logger.info(formatted_message)
+        
+        # Log batch summary at debug level
+        client_logger.debug(f"Processed {len(log_batch.logs)} client logs from session {log_batch.sessionId[:8]}")
+        
+        return {
+            "success": True,
+            "processed": len(log_batch.logs),
+            "sessionId": log_batch.sessionId
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to process client logs: {e}", exc_info=True)
+        # Still return success to prevent client from retrying
+        # We don't want logging failures to impact the client
+        return {
+            "success": False,
+            "error": "Failed to process logs",
+            "processed": 0
+        }
 
 
 @app.get("/api/health")
