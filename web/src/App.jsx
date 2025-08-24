@@ -41,6 +41,16 @@ function App() {
     initAuth()
   }, [checkAuth])
 
+  // Log successful app load
+  useEffect(() => {
+    if (!loading) {
+      logger.info('App loaded successfully', {
+        authRequired,
+        isAuthenticated
+      })
+    }
+  }, [loading, authRequired, isAuthenticated])
+
   // Show loading spinner while checking auth
   if (loading) {
     return (
@@ -55,16 +65,6 @@ function App() {
     logger.debug('Showing login page - authentication required')
     return <Login />
   }
-
-  // Log successful app load
-  useEffect(() => {
-    if (!loading) {
-      logger.info('App loaded successfully', {
-        authRequired,
-        isAuthenticated
-      })
-    }
-  }, [loading, authRequired, isAuthenticated])
 
   return (
     <Layout>
