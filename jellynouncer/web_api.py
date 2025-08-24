@@ -30,6 +30,7 @@ License: MIT
 import os
 import json
 import secrets
+import asyncio
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional, List
@@ -51,7 +52,7 @@ import bcrypt
 
 # Import Jellynouncer modules
 from jellynouncer.config_models import ConfigurationValidator
-from jellynouncer.utils import get_web_logger, setup_web_logging
+from jellynouncer.utils import get_web_logger, setup_web_logging, setup_logging, get_logger
 from jellynouncer.webhook_service import WebhookService
 from jellynouncer.ssl_manager import SSLManager, setup_ssl_routes
 from jellynouncer.security_middleware import setup_security_middleware
@@ -847,13 +848,17 @@ web_service = WebInterfaceService()
 @asynccontextmanager
 async def lifespan(app_instance: FastAPI):
     """Manage application lifecycle"""
-    # Initialize web logging first
+    # Initialize logging first (with colors)
     log_level = os.environ.get("LOG_LEVEL", "INFO")
     log_dir = os.environ.get("LOG_DIR", "/app/logs")
     if not os.path.exists('/.dockerenv'):
         log_dir = "logs"
     
-    setup_web_logging(log_level, log_dir)
+    setup_logging(log_level, log_dir)
+    
+    # Re-get the logger to ensure it has the colored formatter
+    global logger
+    logger = get_logger("jellynouncer.web_api")
     
     # Startup
     logger.info("Starting Jellynouncer Web Interface...")

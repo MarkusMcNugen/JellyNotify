@@ -571,6 +571,24 @@ def setup_logging(log_level: str = "INFO", log_dir: str = "/app/logs") -> loggin
     # Uvicorn is the ASGI server that runs FastAPI applications
     logging.getLogger("uvicorn.access").disabled = True
 
+    # Apply colored formatter to any existing jellynouncer loggers
+    # This handles loggers that were created before setup_logging was called
+    for logger_name in logging.Logger.manager.loggerDict:
+        if logger_name.startswith("jellynouncer"):
+            existing_logger = logging.getLogger(logger_name)
+            # Clear any existing handlers
+            existing_logger.handlers.clear()
+            # Add our colored console handler
+            existing_logger.addHandler(console_handler)
+            # Add file handler if it was created
+            if 'file_handler' in locals():
+                existing_logger.addHandler(file_handler)
+            # Set the level
+            existing_logger.setLevel(numeric_level)
+            # Prevent propagation to avoid duplicate logs
+            existing_logger.propagate = False
+            init_logger.debug(f"Applied colored formatter to existing logger: {logger_name}")
+
     # Log the configuration for verification and debugging
     # This helps administrators verify logging is set up correctly
     logger.info("=" * 60)
@@ -718,6 +736,8 @@ def setup_web_logging(log_level: str = "INFO", log_dir: str = "/app/logs") -> lo
     allows for easier debugging of web-specific issues and keeps client-side logs
     distinct from the main webhook processing logs.
     
+    Now includes colored console output matching the main logging setup.
+    
     Args:
         log_level (str): Python logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         log_dir (str): Directory path where log files will be stored
@@ -736,7 +756,10 @@ def setup_web_logging(log_level: str = "INFO", log_dir: str = "/app/logs") -> lo
         client_logger.info("Client log received")
         ```
     """
-    # Validate log level
+    # First call main setup_logging to set up colored console output
+    setup_logging(log_level, log_dir)
+    
+    # Now set up a separate file handler for web logs
     valid_levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
     log_level_upper = log_level.upper()
     if log_level_upper not in valid_levels:
@@ -751,59 +774,57 @@ def setup_web_logging(log_level: str = "INFO", log_dir: str = "/app/logs") -> lo
     except PermissionError as e:
         raise PermissionError(f"Cannot create log directory '{log_dir}': {e}")
     
-    # Simple formatter for web logs (no colors in file)
-    class SimpleWebFormatter(logging.Formatter):
-        """Simple formatter for web logs."""
-        def format(self, record):
-            timestamp = datetime.fromtimestamp(
-                record.created,
-                tz=timezone.utc
-            ).strftime('%Y-%m-%d %H:%M:%S UTC')
-            
-            return f"[{timestamp}][{record.levelname}][{record.name}] {record.getMessage()}"
-    
-    # Get or create the web logger
+    # Get the web logger
     web_logger = logging.getLogger("jellynouncer.web")
     
-    # Only configure if not already configured
-    if not web_logger.handlers:
-        web_logger.setLevel(numeric_level)
+    # Add a separate file handler specifically for jellynouncer-web.log
+    web_log_file = log_path / "jellynouncer-web.log"
+    try:
+        web_file_handler = logging.handlers.RotatingFileHandler(
+            filename=web_log_file,
+            maxBytes=10 * 1024 * 1024,  # 10MB per file
+            backupCount=5,  # Keep 5 backup files
+            encoding='utf-8',
+            mode='a'
+        )
+        web_file_handler.setLevel(numeric_level)
         
-        # Create file handler for web logs
-        web_log_file = log_path / "jellynouncer-web.log"
-        try:
-            web_file_handler = logging.handlers.RotatingFileHandler(
-                filename=web_log_file,
-                maxBytes=10 * 1024 * 1024,  # 10MB per file
-                backupCount=5,  # Keep 5 backup files
-                encoding='utf-8',
-                mode='a'
-            )
-            web_file_handler.setLevel(numeric_level)
-            
-            # Use simple formatter for web logs
-            formatter = SimpleWebFormatter()
-            web_file_handler.setFormatter(formatter)
+        # Simple formatter for file (no colors in files)
+        class SimpleWebFormatter(logging.Formatter):
+            """Simple formatter for web log files."""
+            def format(self, record):
+                # Get timestamp - use TZ environment variable if set (for Docker), otherwise UTC
+                tz_env = os.environ.get('TZ')
+                if tz_env:
+                    timestamp = datetime.fromtimestamp(record.created).strftime('%Y-%m-%d %H:%M:%S')
+                    try:
+                        import time
+                        tz_name = time.tzname[time.daylight]
+                        timestamp = f"{timestamp} {tz_name}"
+                    except:
+                        pass
+                else:
+                    timestamp = datetime.fromtimestamp(
+                        record.created,
+                        tz=timezone.utc
+                    ).strftime('%Y-%m-%d %H:%M:%S UTC')
+                
+                return f"[{timestamp}][{record.levelname}][{record.name}] {record.getMessage()}"
+        
+        formatter = SimpleWebFormatter()
+        web_file_handler.setFormatter(formatter)
+        
+        # Check if handler already exists to avoid duplicates
+        handler_exists = any(isinstance(h, logging.handlers.RotatingFileHandler) and 
+                            h.baseFilename == str(web_log_file) 
+                            for h in web_logger.handlers)
+        
+        if not handler_exists:
             web_logger.addHandler(web_file_handler)
-            
-        except (OSError, IOError) as e:
-            print(f"ERROR: Failed to create web log file handler: {e}")
-            raise
+            web_logger.info(f"Web logging file handler added: {web_log_file}")
         
-        # Also add console handler if in debug mode
-        if log_level_upper == 'DEBUG':
-            console_handler = logging.StreamHandler()
-            console_handler.setLevel(logging.DEBUG)
-            
-            # Use simple formatter for console as well (web logs don't need fancy colors)
-            console_formatter = SimpleWebFormatter()
-            console_handler.setFormatter(console_formatter)
-            web_logger.addHandler(console_handler)
-        
-        # Prevent propagation to root logger to avoid duplicate logs
-        web_logger.propagate = False
-        
-        web_logger.info(f"Web logging initialized - Level: {log_level_upper}, File: {web_log_file}")
+    except (OSError, IOError) as e:
+        web_logger.error(f"Failed to create web log file handler: {e}")
     
     return web_logger
 
