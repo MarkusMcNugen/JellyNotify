@@ -868,9 +868,6 @@ async def lifespan(app_instance: FastAPI):
     # Setup SSL routes
     await setup_ssl_routes(app_instance, web_service.ssl_manager)
     
-    # Try to connect to webhook service if available
-    # This would be passed in from main.py when both services run together
-    
     # Check SSL configuration
     ssl_settings = await web_service.ssl_manager.get_ssl_settings()
     if ssl_settings.get("ssl_enabled"):
@@ -1005,9 +1002,6 @@ if os.environ.get("JELLYNOUNCER_PRODUCTION"):
         logger.info(f"Trusted host middleware enabled with hosts: {allowed_hosts}")
 else:
     logger.debug("Running in development mode - trusted host middleware disabled")
-
-# Prepare static file path for later mounting (after API routes)
-web_dist_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "web", "dist")
 
 
 # ==================== API Endpoints ====================
@@ -1556,21 +1550,51 @@ async def generate_self_signed_cert(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Mount static files AFTER all API routes to serve the React frontend
-# This way API routes take precedence, and everything else serves the SPA
+# ==================== Static File Serving ====================
+# IMPORTANT: This MUST come after all API route definitions
+# to ensure API routes take precedence over the catch-all static route
+
+# Determine the correct path for web dist
+if os.path.exists('/.dockerenv'):
+    # Running in Docker
+    web_dist_path = "/app/web/dist"
+    logger.info("Running in Docker environment - looking for static files at /app/web/dist")
+else:
+    # Running locally
+    web_dist_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "web", "dist")
+    logger.info(f"Running locally - looking for static files at {web_dist_path}")
+
+# Check if the build exists
 if os.path.exists(web_dist_path):
-    logger.info(f"Serving static files from {web_dist_path}")
-    # First mount the assets directory specifically to avoid MIME type issues
-    assets_path = os.path.join(web_dist_path, "assets")
-    if os.path.exists(assets_path):
-        app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
-    # Then mount the root for HTML and other static files
+    logger.info(f"Web interface build found at {web_dist_path}")
+    
+    # Debug: List contents
+    try:
+        dist_contents = os.listdir(web_dist_path)
+        logger.debug(f"Dist directory contents: {dist_contents}")
+        
+        # Check for assets directory
+        assets_path = os.path.join(web_dist_path, "assets")
+        if os.path.exists(assets_path):
+            asset_files = os.listdir(assets_path)[:5]
+            logger.debug(f"Sample asset files: {asset_files}")
+    except Exception as e:
+        logger.error(f"Error listing directory contents: {e}")
+    
+    # Mount the static files
+    # The order matters: specific routes first, then catch-all
+    from fastapi.staticfiles import StaticFiles
+    
+    # Mount the entire dist directory as the root
+    # The html=True option enables serving index.html for directory requests
     app.mount("/", StaticFiles(directory=web_dist_path, html=True), name="static")
+    logger.info("Static files mounted successfully")
 else:
     logger.warning(f"Web interface build not found at {web_dist_path}")
-    logger.warning("The React frontend needs to be built first. Run 'npm run build' in the web directory.")
+    logger.warning("The React frontend needs to be built first.")
+    logger.warning("Run 'npm install && npm run build' in the web directory")
     
-    # Add a fallback route that returns instructions
+    # Add a fallback route for when the build doesn't exist
     @app.get("/")
     async def web_ui_not_built():
         return JSONResponse(
