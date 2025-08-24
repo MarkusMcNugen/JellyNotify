@@ -17,6 +17,7 @@ import {
   LockClosedIcon,
 } from '@heroicons/react/24/outline';
 import { apiClient } from '../utils/apiClient';
+import logger from '../services/logger';
 
 const Config = () => {
   const [loading, setLoading] = useState(true);
@@ -150,16 +151,28 @@ const Config = () => {
   }, []);
 
   const fetchConfig = async () => {
+    logger.debug('Config: Starting fetchConfig');
     try {
       setLoading(true);
+      logger.debug('Config: Fetching from /api/config');
       const response = await apiClient.get('/api/config');
+      logger.info('Config: Data received', {
+        hasData: !!response.data,
+        keys: response.data ? Object.keys(response.data) : []
+      });
       setConfig(response.data || response);
       setError(null);
+      logger.debug('Config: Successfully loaded configuration');
     } catch (err) {
+      logger.error('Config: Failed to load', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status
+      });
       setError('Failed to load configuration');
-      console.error('Config error:', err);
     } finally {
       setLoading(false);
+      logger.debug('Config: Fetch complete');
     }
   };
 

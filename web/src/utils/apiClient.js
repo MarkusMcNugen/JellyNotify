@@ -1,4 +1,5 @@
 import axios from 'axios';
+import logger from '../services/logger';
 
 // Create axios instance with default config
 // Use current host if no explicit URL is set (works for both localhost and IP access)
@@ -23,14 +24,26 @@ const apiClient = axios.create({
 // Request interceptor to add auth token
 apiClient.interceptors.request.use(
   (config) => {
+    // Log the outgoing request
+    logger.debug('API Request', {
+      method: config.method?.toUpperCase(),
+      url: config.url,
+      baseURL: config.baseURL,
+      fullURL: config.baseURL + config.url,
+      hasToken: !!localStorage.getItem('access_token'),
+      headers: config.headers
+    });
+    
     // Get token from localStorage if auth is enabled
     const token = localStorage.getItem('access_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      logger.debug('API: Added auth token to request');
     }
     return config;
   },
   (error) => {
+    logger.error('API Request Error', error);
     return Promise.reject(error);
   }
 );
@@ -38,9 +51,23 @@ apiClient.interceptors.request.use(
 // Response interceptor to handle token refresh and errors
 apiClient.interceptors.response.use(
   (response) => {
+    logger.debug('API Response Success', {
+      url: response.config.url,
+      status: response.status,
+      statusText: response.statusText,
+      hasData: !!response.data,
+      dataKeys: response.data ? Object.keys(response.data) : []
+    });
     return response;
   },
   async (error) => {
+    logger.error('API Response Error', {
+      url: error.config?.url,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      message: error.message,
+      responseData: error.response?.data
+    });
     const originalRequest = error.config;
 
     // Handle 401 errors (unauthorized)

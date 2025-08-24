@@ -31,8 +31,9 @@ class ClientLogger {
     this.isSending = false;
     
     // Configure loglevel based on environment
+    // Set to debug for now to troubleshoot issues
     const isDev = import.meta.env.DEV;
-    log.setLevel(isDev ? 'debug' : 'info');
+    log.setLevel('debug'); // Always debug for troubleshooting
     
     // Store original methods
     this.originalMethods = {

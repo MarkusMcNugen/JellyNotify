@@ -24,6 +24,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { apiClient } from '../utils/apiClient';
 import JellyfinStats from '../components/JellyfinStats';
+import logger from '../services/logger';
 
 // Register Chart.js components
 ChartJS.register(
@@ -47,25 +48,66 @@ const Overview = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchData = async () => {
+    logger.debug('Overview: Starting fetchData', { 
+      currentState: { loading, hasStats: !!stats, hasHealth: !!health, hasError: !!error }
+    });
+    
     try {
       setRefreshing(true);
+      logger.debug('Overview: Making API calls to /api/overview and /api/health');
+      
       const [overviewData, healthData] = await Promise.all([
         apiClient.get('/api/overview'),
         apiClient.get('/api/health'),
       ]);
 
+      logger.info('Overview: API responses received', {
+        overviewStatus: overviewData.status,
+        healthStatus: healthData.status,
+        hasOverviewData: !!overviewData.data,
+        hasHealthData: !!healthData.data,
+        overviewKeys: overviewData.data ? Object.keys(overviewData.data) : [],
+        healthKeys: healthData.data ? Object.keys(healthData.data) : []
+      });
+
       // Extract data from axios response
       const overview = overviewData.data;
+      logger.debug('Overview: Processing overview data', {
+        hasData: !!overview,
+        keys: overview ? Object.keys(overview) : [],
+        totalItems: overview?.total_items,
+        itemsToday: overview?.items_today
+      });
       setStats(overview);
+      
+      logger.debug('Overview: Processing health data', {
+        status: healthData.data?.status,
+        components: healthData.data?.components ? Object.keys(healthData.data.components) : []
+      });
       setHealth(healthData.data);
-      setRecentNotifications(overview && overview['recent_notifications'] ? overview['recent_notifications'] : []);
+      
+      const notifications = overview && overview['recent_notifications'] ? overview['recent_notifications'] : [];
+      logger.debug('Overview: Processing notifications', {
+        count: notifications.length,
+        hasNotifications: notifications.length > 0
+      });
+      setRecentNotifications(notifications);
+      
       setError(null);
+      logger.info('Overview: Data fetch successful');
     } catch (err) {
+      logger.error('Overview: API Error', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        url: err.config?.url
+      });
       setError('Failed to fetch dashboard data');
-      console.error('Dashboard error:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
+      logger.debug('Overview: Fetch complete, loading set to false');
     }
   };
 
@@ -180,13 +222,31 @@ const Overview = () => {
     },
   };
 
+  // Log render conditions
+  logger.debug('Overview: Render check', {
+    loading,
+    hasStats: !!stats,
+    hasHealth: !!health,
+    hasError: !!error,
+    statsKeys: stats ? Object.keys(stats) : null,
+    willShowLoading: loading && !stats,
+    willShowContent: !loading || stats
+  });
+
   if (loading && !stats) {
+    logger.debug('Overview: Showing loading spinner');
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
       </div>
     );
   }
+
+  logger.info('Overview: Rendering main content', {
+    statsAvailable: !!stats,
+    healthAvailable: !!health,
+    notificationsCount: recentNotifications.length
+  });
 
   return (
     <div className="space-y-6">

@@ -4,6 +4,7 @@ import { apiService } from '../services/api'
 import Jinja2Editor from '../components/Jinja2Editor'
 import { Icon, IconDuotone, IconLight } from '../components/FontAwesomeIcon'
 import toast from 'react-hot-toast'
+import logger from '../services/logger'
 
 const Templates = () => {
   const [selectedTemplate, setSelectedTemplate] = useState(null)
@@ -17,32 +18,68 @@ const Templates = () => {
   
   const { data: templates, refetch } = useQuery({
     queryKey: ['templates'],
-    queryFn: apiService.getTemplates
+    queryFn: async () => {
+      logger.debug('Templates: Fetching template list');
+      try {
+        const result = await apiService.getTemplates();
+        logger.info('Templates: List received', {
+          count: result?.length || 0,
+          templates: result?.map(t => t.name) || []
+        });
+        return result;
+      } catch (err) {
+        logger.error('Templates: Failed to fetch list', err);
+        throw err;
+      }
+    }
   })
 
   const saveMutation = useMutation({
-    mutationFn: ({ name, content }) => apiService.updateTemplate(name, content),
+    mutationFn: ({ name, content }) => {
+      logger.debug('Templates: Saving template', { name, contentLength: content.length });
+      return apiService.updateTemplate(name, content);
+    },
     onSuccess: () => {
+      logger.info('Templates: Save successful');
       toast.success('Template saved successfully')
       setIsModified(false)
       void refetch()
+    },
+    onError: (err) => {
+      logger.error('Templates: Save failed', err);
     }
   })
 
   const restoreMutation = useMutation({
-    mutationFn: (name) => apiService.restoreTemplate(name),
+    mutationFn: (name) => {
+      logger.debug('Templates: Restoring template to default', { name });
+      return apiService.restoreTemplate(name);
+    },
     onSuccess: () => {
+      logger.info('Templates: Restore successful');
       toast.success('Template restored to default')
       void loadTemplate(selectedTemplate)
       void refetch()
+    },
+    onError: (err) => {
+      logger.error('Templates: Restore failed', err);
     }
   })
 
   const loadTemplate = async (name) => {
-    const response = await apiService.getTemplate(name)
-    setSelectedTemplate(name)
-    setEditorContent(response.data.content)
-    setIsModified(false)
+    logger.debug('Templates: Loading template', { name });
+    try {
+      const response = await apiService.getTemplate(name)
+      logger.info('Templates: Template loaded', { 
+        name, 
+        contentLength: response.data?.content?.length || 0 
+      });
+      setSelectedTemplate(name)
+      setEditorContent(response.data.content)
+      setIsModified(false)
+    } catch (err) {
+      logger.error('Templates: Failed to load template', { name, error: err });
+    }
   }
 
   const handleEditorChange = (value) => {

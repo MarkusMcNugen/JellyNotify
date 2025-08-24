@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import ConnectionStatus from './ConnectionStatus';
 import DarkModeToggle from './DarkModeToggle';
 import { Icon, IconDuotone, IconLight } from './FontAwesomeIcon';
+import logger from '../services/logger';
 
 const Layout = () => {
   const location = useLocation();
@@ -18,7 +19,17 @@ const Layout = () => {
     { name: 'Logs', href: '/logs', icon: 'search-plus', style: 'duotone' },
   ];
 
+  // Log navigation changes
+  useEffect(() => {
+    logger.debug('Layout: Navigation changed', {
+      path: location.pathname,
+      isAuthenticated,
+      user: user?.username
+    });
+  }, [location, isAuthenticated, user]);
+
   const handleLogout = () => {
+    logger.info('Layout: User logging out');
     logout();
     navigate('/login');
   };

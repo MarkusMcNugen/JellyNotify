@@ -4,6 +4,7 @@ import { apiService } from '../services/api'
 import { Icon, IconDuotone, IconLight } from '../components/FontAwesomeIcon'
 import { parseLogText, filterLogs, getLogStatistics, formatLogForDisplay, exportLogs, LOG_LEVEL_COLORS } from '../utils/logParser'
 import { FixedSizeList as VirtualList } from 'react-window'
+import logger from '../services/logger'
 
 const Logs = () => {
   const [logFile, setLogFile] = useState('jellynouncer.log')
@@ -19,13 +20,32 @@ const Logs = () => {
   // Fetch logs
   const { data: logsResponse, refetch, isLoading } = useQuery({
     queryKey: ['logs', logFile, lines, level, component, search],
-    queryFn: () => apiService.getLogs({
-      file: logFile,
-      lines,
-      level: level || undefined,
-      component: component || undefined,
-      search: search || undefined
-    }),
+    queryFn: async () => {
+      logger.debug('Logs: Fetching logs', {
+        file: logFile,
+        lines,
+        level,
+        component,
+        search
+      });
+      try {
+        const result = await apiService.getLogs({
+          file: logFile,
+          lines,
+          level: level || undefined,
+          component: component || undefined,
+          search: search || undefined
+        });
+        logger.info('Logs: Data received', {
+          logCount: result?.data?.logs?.length || 0,
+          hasData: !!result?.data
+        });
+        return result;
+      } catch (err) {
+        logger.error('Logs: Failed to fetch', err);
+        throw err;
+      }
+    },
     refetchInterval: autoRefresh ? 5000 : false
   })
   
