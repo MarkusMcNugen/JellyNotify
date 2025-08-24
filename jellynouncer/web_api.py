@@ -1842,9 +1842,39 @@ if os.path.exists(web_dist_path):
     try:
         # Mount the entire dist directory as the root
         # The html=True option enables serving index.html for directory requests
+        from fastapi.responses import FileResponse
+        
+        # First, mount static files for assets
         static_files = StaticFiles(directory=web_dist_path, html=True)
+        app.mount("/assets", StaticFiles(directory=os.path.join(web_dist_path, "assets")), name="assets")
+        
+        # Add explicit route handlers for SPA paths to serve index.html
+        index_path = os.path.join(web_dist_path, "index.html")
+        
+        @app.get("/")
+        async def serve_root():
+            return FileResponse(index_path)
+        
+        @app.get("/config")
+        async def serve_config():
+            return FileResponse(index_path)
+        
+        @app.get("/templates")
+        async def serve_templates():
+            return FileResponse(index_path)
+        
+        @app.get("/logs")
+        async def serve_logs():
+            return FileResponse(index_path)
+        
+        @app.get("/overview")
+        async def serve_overview():
+            return FileResponse(index_path)
+        
+        # Mount everything else as static files
         app.mount("/", static_files, name="static")
-        logger.info("✓ Static files mounted successfully")
+        
+        logger.info("✓ Static files and SPA routes configured successfully")
         
         # Log all registered routes for debugging
         logger.debug("Registered routes after static mount:")
@@ -1875,7 +1905,28 @@ else:
     
     # Add a fallback route for when the build doesn't exist
     @app.get("/")
-    async def web_ui_not_built():
+    async def web_ui_not_built_root():
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "Web interface not built",
+                "message": "The web interface needs to be built before it can be served.",
+                "instructions": [
+                    "1. Navigate to the 'web' directory",
+                    "2. Run 'npm install' to install dependencies",
+                    "3. Run 'npm run build' to build the production files",
+                    "4. Restart the Jellynouncer service"
+                ],
+                "api_status": "The API endpoints are still available at /api/*"
+            }
+        )
+    
+    # Add catch-all routes for SPA paths
+    @app.get("/config")
+    @app.get("/templates")
+    @app.get("/logs")
+    @app.get("/overview")
+    async def web_ui_not_built_spa():
         return JSONResponse(
             status_code=503,
             content={

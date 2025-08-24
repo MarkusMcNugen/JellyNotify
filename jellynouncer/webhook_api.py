@@ -84,6 +84,7 @@ from typing import Dict, Any, Optional
 
 # Third-party imports for async web framework and HTTP operations
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 import uvicorn
@@ -246,6 +247,16 @@ app = FastAPI(
     description="Intermediary Discord webhook service for Jellyfin media notifications",
     version="2.0.0",
     lifespan=lifespan
+)
+
+# Configure CORS to allow the web interface to access this service
+# Using ["*"] allows all origins - you can restrict this to specific origins if needed
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins for simplicity
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
