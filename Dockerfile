@@ -19,7 +19,7 @@ RUN npm ci --omit=dev
 COPY web/ ./
 
 # Build the production bundle
-RUN npm run build
+RUN npm install
 
 # ============================================
 # Stage 2: Python Base 
