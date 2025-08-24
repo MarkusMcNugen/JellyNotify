@@ -56,3 +56,8 @@ node_modules/
 /fixed_logs.png
 /fixed_templates.png
 /test-after-fixes.js
+/check_database.py
+/sqlite.zip
+/test-api-calls.js
+/test-overview-api.js
+/web_interface.db

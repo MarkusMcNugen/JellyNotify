@@ -459,24 +459,33 @@ async def get_current_user_optional(credentials: Optional[HTTPAuthorizationCrede
 
 async def check_auth_required(user: Optional[Dict[str, Any]] = Depends(get_current_user_optional)) -> Optional[Dict[str, Any]]:
     """Check if authentication is required and validate user"""
-    # Check if auth is enabled
-    web_db = WebDatabaseManager()
-    settings = await web_db.get_security_settings()
-    
-    logger.debug(f"Auth check - enabled: {settings['auth_enabled']}, user present: {user is not None}")
-    
-    if settings["auth_enabled"]:
-        if not user:
-            logger.debug("Authentication required but no valid user token provided")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Authentication required",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+    try:
+        # Check if auth is enabled
+        web_db = WebDatabaseManager()
+        await web_db.initialize()  # Ensure DB is initialized
+        settings = await web_db.get_security_settings()
+        
+        logger.debug(f"Auth check - settings: {settings}, user present: {user is not None}")
+        
+        if settings.get("auth_enabled", False):
+            if not user:
+                logger.debug("Authentication required but no valid user token provided")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Authentication required",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            return user
+        
+        # Auth not required, return None or user if provided
         return user
-    
-    # Auth not required, return None or user if provided
-    return user
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as e:
+        logger.error(f"Error checking auth requirements: {e}", exc_info=True)
+        # On error, default to no auth required
+        return user
 
 
 # ==================== Service Manager ====================
@@ -1840,7 +1849,7 @@ if os.path.exists(web_dist_path):
             logger.debug("✓ Assets directory exists")
             failing_assets = [
                 "index-BdASS8Ro.css",
-                "index-Brl9qVFk.js",
+                "index-Tty_PeQt.js",
                 "vendor-bSNdPxfD.js",
                 "charts-DRG5hiZT.js"
             ]
@@ -1861,16 +1870,41 @@ if os.path.exists(web_dist_path):
     # Mount the static files
     logger.debug("Attempting to mount static files...")
     
+    # Add explicit SPA route handlers BEFORE mounting static files
+    # These will serve index.html for the main SPA routes
+    from fastapi.responses import FileResponse
+    
+    index_path = os.path.join(web_dist_path, "index.html")
+    
+    @app.get("/config")
+    async def serve_config_spa():
+        """Serve index.html for /config SPA route"""
+        return FileResponse(index_path, media_type="text/html")
+    
+    @app.get("/templates")
+    async def serve_templates_spa():
+        """Serve index.html for /templates SPA route"""
+        return FileResponse(index_path, media_type="text/html")
+    
+    @app.get("/logs")
+    async def serve_logs_spa():
+        """Serve index.html for /logs SPA route"""
+        return FileResponse(index_path, media_type="text/html")
+    
+    @app.get("/overview")
+    async def serve_overview_spa():
+        """Serve index.html for /overview SPA route"""
+        return FileResponse(index_path, media_type="text/html")
+    
+    logger.debug("Added explicit SPA route handlers for /config, /templates, /logs, /overview")
+    
     # The order matters: specific routes first, then catch-all
     from fastapi.staticfiles import StaticFiles
     
     try:
         # Mount the entire dist directory as the root
         # The html=True option enables serving index.html for directory requests
-        from fastapi.staticfiles import StaticFiles
-        
-        # Mount the static files with html=True for SPA support
-        # This will serve index.html for any route that doesn't match a file
+        # But we've added explicit handlers above for the main SPA routes
         static_files = StaticFiles(directory=web_dist_path, html=True)
         app.mount("/", static_files, name="static")
         
