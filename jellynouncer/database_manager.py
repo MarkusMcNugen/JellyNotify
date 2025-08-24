@@ -678,7 +678,7 @@ class DatabaseManager:
                 await db.commit()
                 self._connection_count -= 1
 
-            self.logger.info(f"Batch save completed: {successful} successful, {failed} failed")
+            self.logger.debug(f"Batch save completed: {successful} successful, {failed} failed")
             return {
                 'successful': successful,
                 'failed': failed,

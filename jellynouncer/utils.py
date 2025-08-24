@@ -274,24 +274,13 @@ def setup_logging(log_level: str = "INFO", log_dir: str = "/app/logs") -> loggin
         # Config not available yet, use defaults
         pass
     
-    # Create a basic logger for debugging color initialization
-    # We can't use the main logger yet since it hasn't been set up
-    init_logger = logging.getLogger("jellynouncer.init")
-    init_logger.setLevel(logging.DEBUG)
-    if not init_logger.handlers:
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.DEBUG)
-        console_handler.setFormatter(logging.Formatter('[%(asctime)s] [COLOR-DEBUG] [%(levelname)s] %(message)s'))
-        init_logger.addHandler(console_handler)
-    
-    # Force a debug message to console to verify it's working
-    print("[COLOR-DEBUG] Setup logging called - checking color initialization", file=sys.stderr)
-    
-    init_logger.debug("=" * 60)
-    init_logger.debug("Color initialization starting...")
-    init_logger.debug(f"Colorama available: {COLORAMA_AVAILABLE}")
-    init_logger.debug(f"Config force_color_output: {config_force_color}")
-    init_logger.debug(f"Config disable_color_output: {config_disable_color}")
+    # Store debug messages to log after logger is set up
+    color_debug_messages = []
+    color_debug_messages.append("=" * 60)
+    color_debug_messages.append("Color initialization starting...")
+    color_debug_messages.append(f"Colorama available: {COLORAMA_AVAILABLE}")
+    color_debug_messages.append(f"Config force_color_output: {config_force_color}")
+    color_debug_messages.append(f"Config disable_color_output: {config_disable_color}")
     
     # Initialize variables with defaults to avoid "referenced before assignment" warnings
     in_docker = False
@@ -302,66 +291,60 @@ def setup_logging(log_level: str = "INFO", log_dir: str = "/app/logs") -> loggin
         # Check if colors are explicitly disabled via NO_COLOR environment variable or config
         env_no_color = os.environ.get('NO_COLOR', '').lower() in ('1', 'true', 'yes')
         force_no_color = env_no_color or config_disable_color
-        init_logger.debug(f"NO_COLOR environment variable: {os.environ.get('NO_COLOR', 'not set')}")
-        init_logger.debug(f"Force no color: {force_no_color} (env: {env_no_color}, config: {config_disable_color})")
+        color_debug_messages.append(f"NO_COLOR environment variable: {os.environ.get('NO_COLOR', 'not set')}")
+        color_debug_messages.append(f"Force no color: {force_no_color} (env: {env_no_color}, config: {config_disable_color})")
         
         # Check if we're in Docker (by checking for /.dockerenv file)
         in_docker = os.path.exists('/.dockerenv')
-        init_logger.debug(f"Docker environment detected (/.dockerenv exists): {in_docker}")
+        color_debug_messages.append(f"Docker environment detected (/.dockerenv exists): {in_docker}")
         
         # Check if we have a TTY
         has_tty = hasattr(sys.stdout, 'isatty') and sys.stdout.isatty()
-        init_logger.debug(f"TTY detected: {has_tty}")
-        init_logger.debug(f"stdout type: {type(sys.stdout)}")
+        color_debug_messages.append(f"TTY detected: {has_tty}")
+        color_debug_messages.append(f"stdout type: {type(sys.stdout)}")
         
         # Check TERM environment variable
         term_var = os.environ.get('TERM', 'not set')
-        init_logger.debug(f"TERM environment variable: {term_var}")
+        color_debug_messages.append(f"TERM environment variable: {term_var}")
         
         # Check FORCE_COLOR environment variable
         force_color_var = os.environ.get('FORCE_COLOR', 'not set')
-        init_logger.debug(f"FORCE_COLOR environment variable: {force_color_var}")
+        color_debug_messages.append(f"FORCE_COLOR environment variable: {force_color_var}")
         
         # Determine if we should use colors
         if force_no_color:
             # User explicitly disabled colors
-            init_logger.debug("Colors DISABLED: NO_COLOR environment variable is set")
+            color_debug_messages.append("Colors DISABLED: NO_COLOR environment variable is set")
             use_colors = False
         elif in_docker:
             # Always force colors in Docker environments
             # Use strip=False to keep colors even without TTY
             # Use convert=False to prevent colorama from converting/stripping codes
-            init_logger.debug("Colors ENABLED: Docker environment detected, forcing colors")
-            init_logger.debug("Initializing colorama with: autoreset=True, strip=False, convert=False")
+            color_debug_messages.append("Colors ENABLED: Docker environment detected, forcing colors")
+            color_debug_messages.append("Initializing colorama with: autoreset=True, strip=False, convert=False")
             colorama.init(autoreset=True, strip=False, convert=False)
             use_colors = True
         elif has_tty:
             # Normal TTY environment (not Docker)
-            init_logger.debug("Colors ENABLED: TTY detected")
-            init_logger.debug("Initializing colorama with: autoreset=True (standard mode)")
+            color_debug_messages.append("Colors ENABLED: TTY detected")
+            color_debug_messages.append("Initializing colorama with: autoreset=True (standard mode)")
             colorama.init(autoreset=True)
             use_colors = True
         elif os.environ.get('FORCE_COLOR', '').lower() in ('1', 'true', 'yes') or config_force_color:
             # Allow forcing colors even in non-Docker, non-TTY environments if needed
             source = "FORCE_COLOR environment variable" if os.environ.get('FORCE_COLOR', '').lower() in ('1', 'true', 'yes') else "config.server.force_color_output"
-            init_logger.debug(f"Colors ENABLED: {source} is set")
-            init_logger.debug("Initializing colorama with: autoreset=True, strip=False, convert=False")
+            color_debug_messages.append(f"Colors ENABLED: {source} is set")
+            color_debug_messages.append("Initializing colorama with: autoreset=True, strip=False, convert=False")
             colorama.init(autoreset=True, strip=False, convert=False)
             use_colors = True
         else:
-            init_logger.debug("Colors DISABLED: No TTY, not in Docker, and FORCE_COLOR not set")
+            color_debug_messages.append("Colors DISABLED: No TTY, not in Docker, and FORCE_COLOR not set")
     else:
-        init_logger.debug("Colors DISABLED: Colorama module not available")
+        color_debug_messages.append("Colors DISABLED: Colorama module not available")
     
-    init_logger.debug(f"Final decision - use_colors: {use_colors}")
-    init_logger.debug("=" * 60)
+    color_debug_messages.append(f"Final decision - use_colors: {use_colors}")
+    color_debug_messages.append("=" * 60)
     
-    # Force output to console to verify color decision
-    print(f"[COLOR-DEBUG] Final color decision: use_colors={use_colors}, colorama_available={COLORAMA_AVAILABLE}, in_docker={in_docker}, has_tty={has_tty}", file=sys.stderr)
-    
-    # Test if colors actually work
-    if use_colors and COLORAMA_AVAILABLE:
-        print(f"[COLOR-TEST] {Fore.RED}This should be red{Style.RESET_ALL} {Fore.GREEN}This should be green{Style.RESET_ALL}", file=sys.stderr)
     
     class BracketFormatter(logging.Formatter):
         """
@@ -377,10 +360,6 @@ def setup_logging(log_level: str = "INFO", log_dir: str = "/app/logs") -> loggin
             """Initialize formatter with color support option."""
             super().__init__()
             self.use_colors = use_color_output
-            
-            # Debug logging for formatter creation
-            debug_logger = logging.getLogger("jellynouncer.init")
-            debug_logger.debug(f"BracketFormatter created with use_colors={self.use_colors}, COLORAMA_AVAILABLE={COLORAMA_AVAILABLE}")
             
             # Only set up colors if requested
             if self.use_colors and COLORAMA_AVAILABLE:
@@ -550,7 +529,6 @@ def setup_logging(log_level: str = "INFO", log_dir: str = "/app/logs") -> loggin
     
     # Check if logging is already set up
     if logger.handlers:
-        print("[COLOR-DEBUG] Logging already set up, skipping re-initialization", file=sys.stderr)
         # Just update the level if needed
         logger.setLevel(numeric_level)
         # Still return the logger but don't reconfigure
@@ -568,10 +546,8 @@ def setup_logging(log_level: str = "INFO", log_dir: str = "/app/logs") -> loggin
     console_handler.setLevel(numeric_level)  # Use specified log level instead of hardcoded INFO
     # Use colored formatter for console output
     bracket_formatter = BracketFormatter(use_color_output=use_colors)
-    init_logger.debug(f"Creating BracketFormatter with use_colors={use_colors}")
     console_handler.setFormatter(bracket_formatter)
     logger.addHandler(console_handler)
-    init_logger.debug(f"Added console handler to main logger with colors={use_colors}")
 
     # Rotating file handler to prevent logs from consuming unlimited disk space
     # This is crucial for production deployments that run continuously
@@ -599,11 +575,9 @@ def setup_logging(log_level: str = "INFO", log_dir: str = "/app/logs") -> loggin
 
     # Apply colored formatter to any existing jellynouncer loggers
     # This handles loggers that were created before setup_logging was called
-    init_logger.debug(f"Checking for existing loggers to update...")
     for logger_name in list(logging.Logger.manager.loggerDict.keys()):
         if logger_name.startswith("jellynouncer") and logger_name != "jellynouncer" and logger_name != "jellynouncer.init":
             existing_logger = logging.getLogger(logger_name)
-            init_logger.debug(f"Found existing logger: {logger_name}, has {len(existing_logger.handlers)} handlers")
             # Clear any existing handlers
             existing_logger.handlers.clear()
             # Add our colored console handler
@@ -615,8 +589,12 @@ def setup_logging(log_level: str = "INFO", log_dir: str = "/app/logs") -> loggin
             existing_logger.setLevel(numeric_level)
             # Prevent propagation to avoid duplicate logs
             existing_logger.propagate = False
-            init_logger.debug(f"Applied colored formatter to existing logger: {logger_name} (colors={use_colors})")
 
+    # Output the color debug messages now that logger is set up (only in DEBUG mode)
+    if numeric_level <= logging.DEBUG:
+        for msg in color_debug_messages:
+            logger.debug(msg)
+    
     # Log the configuration for verification and debugging
     # This helps administrators verify logging is set up correctly
     logger.info("=" * 60)

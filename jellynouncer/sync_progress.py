@@ -674,23 +674,23 @@ class SyncProgressDisplay:
         tree = self.chars
         
         # Log progress with colors and proper spacing
-        self.logger.info(f"Sync Progress: {progress_bar}")
+        self.logger.debug(f"Sync Progress: {progress_bar}")
         
         # Format lines with consistent spacing
         if self.unicode_level == 'full' or self.unicode_level == 'unicode':
             # Use proper tree characters with spacing
-            self.logger.info(f"{tree['tree_mid']}  {icon['batch']}  Batch: #{batch_num} ({items_in_batch} items)  │  Total: {total_fetched:,}/{self.total_items:,}")
-            self.logger.info(f"{tree['tree_mid']}  {icon['speed']}  Speed: {speed_color}{speed:.0f} items/sec{self.reset}")
-            self.logger.info(f"{tree['tree_mid']}  {icon['time']}  ETA: {eta_color}~{SyncProgressDisplay._format_time(eta)}{self.reset}")
-            self.logger.info(f"{tree['tree_mid']}  {icon['success']}  Processed: {items_processed:,}  │  {icon['error']}  Errors: {error_color}{errors}{self.reset}")
-            self.logger.info(f"{tree['tree_end']}  {icon['new']}  New: {new_color}{new_items}{self.reset}  │  {icon['update']}  Updated: {update_color}{updated_items}{self.reset}")
+            self.logger.debug(f"{tree['tree_mid']}  {icon['batch']}  Batch: #{batch_num} ({items_in_batch} items)  │  Total: {total_fetched:,}/{self.total_items:,}")
+            self.logger.debug(f"{tree['tree_mid']}  {icon['speed']}  Speed: {speed_color}{speed:.0f} items/sec{self.reset}")
+            self.logger.debug(f"{tree['tree_mid']}  {icon['time']}  ETA: {eta_color}~{SyncProgressDisplay._format_time(eta)}{self.reset}")
+            self.logger.debug(f"{tree['tree_mid']}  {icon['success']}  Processed: {items_processed:,}  │  {icon['error']}  Errors: {error_color}{errors}{self.reset}")
+            self.logger.debug(f"{tree['tree_end']}  {icon['new']}  New: {new_color}{new_items}{self.reset}  │  {icon['update']}  Updated: {update_color}{updated_items}{self.reset}")
         else:
             # ASCII fallback with simpler formatting
-            self.logger.info(f"{tree['tree_mid']} {icon['batch']} Batch: #{batch_num} ({items_in_batch} items) | Total: {total_fetched:,}/{self.total_items:,}")
-            self.logger.info(f"{tree['tree_mid']} {icon['speed']} Speed: {speed_color}{speed:.0f} items/sec{self.reset}")
-            self.logger.info(f"{tree['tree_mid']} {icon['time']} ETA: {eta_color}~{SyncProgressDisplay._format_time(eta)}{self.reset}")
-            self.logger.info(f"{tree['tree_mid']} {icon['success']} Processed: {items_processed:,} | {icon['error']} Errors: {error_color}{errors}{self.reset}")
-            self.logger.info(f"{tree['tree_end']} {icon['new']} New: {new_color}{new_items}{self.reset} | {icon['update']} Updated: {update_color}{updated_items}{self.reset}")
+            self.logger.debug(f"{tree['tree_mid']} {icon['batch']} Batch: #{batch_num} ({items_in_batch} items) | Total: {total_fetched:,}/{self.total_items:,}")
+            self.logger.debug(f"{tree['tree_mid']} {icon['speed']} Speed: {speed_color}{speed:.0f} items/sec{self.reset}")
+            self.logger.debug(f"{tree['tree_mid']} {icon['time']} ETA: {eta_color}~{SyncProgressDisplay._format_time(eta)}{self.reset}")
+            self.logger.debug(f"{tree['tree_mid']} {icon['success']} Processed: {items_processed:,} | {icon['error']} Errors: {error_color}{errors}{self.reset}")
+            self.logger.debug(f"{tree['tree_end']} {icon['new']} New: {new_color}{new_items}{self.reset} | {icon['update']} Updated: {update_color}{updated_items}{self.reset}")
     
     def log_sync_complete(self, success: bool = True):
         """

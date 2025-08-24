@@ -1428,7 +1428,7 @@ class WebhookService:
                                     batch_time = time.time() - batch_start_time
                                     
                                     # Log batch save completion with breakdown
-                                    self.logger.info(
+                                    self.logger.debug(
                                         f"Batch {batch_num} saved to database: "
                                         f"{batch_results['successful']}/{len(db_items)} items "
                                         f"(Total: {batch_time:.2f}s, DB: {db_save_time:.2f}s)"
