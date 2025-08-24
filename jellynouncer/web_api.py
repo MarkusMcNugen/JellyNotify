@@ -1006,6 +1006,9 @@ if os.environ.get("JELLYNOUNCER_PRODUCTION"):
 else:
     logger.debug("Running in development mode - trusted host middleware disabled")
 
+# Prepare static file path for later mounting (after API routes)
+web_dist_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "web", "dist")
+
 
 # ==================== API Endpoints ====================
 
@@ -1553,10 +1556,15 @@ async def generate_self_signed_cert(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Serve static files (React build)
-web_dist_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "web", "dist")
+# Mount static files AFTER all API routes to serve the React frontend
+# This way API routes take precedence, and everything else serves the SPA
 if os.path.exists(web_dist_path):
     logger.info(f"Serving static files from {web_dist_path}")
+    # First mount the assets directory specifically to avoid MIME type issues
+    assets_path = os.path.join(web_dist_path, "assets")
+    if os.path.exists(assets_path):
+        app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
+    # Then mount the root for HTML and other static files
     app.mount("/", StaticFiles(directory=web_dist_path, html=True), name="static")
 else:
     logger.warning(f"Web interface build not found at {web_dist_path}")
