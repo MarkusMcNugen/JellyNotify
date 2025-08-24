@@ -1,0 +1,23 @@
+{
+  "name": "jellynouncer",
+  "version": "1.0.0",
+  "description": "<div align=\"center\">\r   <img src=\"images/Jellynouncer_Full.png\" alt=\"Jellynouncer Logo\" width=\"50%\">",
+  "main": "index.js",
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MarkusMcNugen/Jellynouncer.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/MarkusMcNugen/Jellynouncer/issues"
+  },
+  "homepage": "https://github.com/MarkusMcNugen/Jellynouncer#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@types/node": "^24.3.0"
+  }
+}

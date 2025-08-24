@@ -1842,39 +1842,14 @@ if os.path.exists(web_dist_path):
     try:
         # Mount the entire dist directory as the root
         # The html=True option enables serving index.html for directory requests
-        from fastapi.responses import FileResponse
+        from fastapi.staticfiles import StaticFiles
         
-        # First, mount static files for assets
+        # Mount the static files with html=True for SPA support
+        # This will serve index.html for any route that doesn't match a file
         static_files = StaticFiles(directory=web_dist_path, html=True)
-        app.mount("/assets", StaticFiles(directory=os.path.join(web_dist_path, "assets")), name="assets")
-        
-        # Add explicit route handlers for SPA paths to serve index.html
-        index_path = os.path.join(web_dist_path, "index.html")
-        
-        @app.get("/")
-        async def serve_root():
-            return FileResponse(index_path)
-        
-        @app.get("/config")
-        async def serve_config():
-            return FileResponse(index_path)
-        
-        @app.get("/templates")
-        async def serve_templates():
-            return FileResponse(index_path)
-        
-        @app.get("/logs")
-        async def serve_logs():
-            return FileResponse(index_path)
-        
-        @app.get("/overview")
-        async def serve_overview():
-            return FileResponse(index_path)
-        
-        # Mount everything else as static files
         app.mount("/", static_files, name="static")
         
-        logger.info("✓ Static files and SPA routes configured successfully")
+        logger.info("✓ Static files mounted successfully with SPA support")
         
         # Log all registered routes for debugging
         logger.debug("Registered routes after static mount:")

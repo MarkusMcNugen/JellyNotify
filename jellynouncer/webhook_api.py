@@ -249,15 +249,17 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Configure CORS to allow the web interface to access this service
-# Using ["*"] allows all origins - you can restrict this to specific origins if needed
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for simplicity
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# CORS configuration - only enable if explicitly configured
+# This should be controlled by user configuration for security
+# For now, commenting out until proper configuration is implemented
+# TODO: Make this configurable via web interface settings
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=["*"],  # Should be configurable
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
 
 
 @app.post("/webhook")
