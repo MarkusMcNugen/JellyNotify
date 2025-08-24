@@ -70,9 +70,9 @@
 The service acts as a smart filter between Jellyfin's webhook events and Discord notifications, analyzing changes to determine what's truly noteworthy - distinguishing between new content additions and quality improvements like resolution upgrades (1080p → 4K) or HDR additions.
 
 > [!WARNING]
-> **BETA SOFTWARE NOTICE**
+> **ALPHA SOFTWARE NOTICE**
 > 
-> This software is currently in beta development. While core functionality is stable, you may encounter bugs or edge cases. Please report any issues you find to help improve the service.
+> This software is currently in alpha development. While core functionality may sometimes be stable, you may encounter bbreaking bugs at any time while ongoing development occurs.
 
 ## ✨ Key Features
 
