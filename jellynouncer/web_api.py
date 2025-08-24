@@ -1009,6 +1009,14 @@ async def log_requests(request: Request, call_next):
     
     # Log incoming request with detailed information
     logger.debug(f"[{request_id}] Incoming request: {request.method} {request.url.path}")
+    
+    # Extra logging for static file requests to debug serving issues
+    if not request.url.path.startswith("/api"):
+        logger.debug(f"[{request_id}] Static file request detected")
+        if "/assets/" in request.url.path:
+            logger.debug(f"[{request_id}] Asset request: {request.url.path}")
+        elif request.url.path in ["/", "/config", "/templates", "/logs", "/overview"]:
+            logger.debug(f"[{request_id}] SPA route request: {request.url.path} - should serve index.html")
     logger.debug(f"[{request_id}] Client: {request.client.host if request.client else 'unknown'}")
     logger.debug(f"[{request_id}] Headers: {dict(request.headers)}")
     logger.debug(f"[{request_id}] Query params: {dict(request.query_params)}")
@@ -1063,6 +1071,11 @@ async def log_requests(request: Request, call_next):
     # Log response details based on status code
     if response.status_code >= 400:
         logger.warning(f"[{request_id}] Error response: {response.status_code} for {request.method} {request.url.path}")
+        # Extra detail for 404s on static files
+        if response.status_code == 404 and not request.url.path.startswith("/api"):
+            logger.warning(f"[{request_id}] Static file not found - this may indicate the SPA routes aren't working correctly")
+            logger.warning(f"[{request_id}] Path requested: {request.url.path}")
+            logger.warning(f"[{request_id}] Should have served index.html for SPA route")
     elif response.status_code >= 300:
         logger.debug(f"[{request_id}] Redirect response: {response.status_code}")
     else:
@@ -1070,25 +1083,37 @@ async def log_requests(request: Request, call_next):
     
     return response
 
-# Configure CORS - Allow all origins by default for local/Docker deployments
-# This avoids authentication issues when accessing from different IPs
-# In production, you can restrict origins via environment variable
-allowed_origins = ["*"]  # Allow all origins by default
+# Configure CORS - Disabled by default for security
+# Can be enabled via environment variable if needed
+cors_enabled = os.environ.get("JELLYNOUNCER_ENABLE_CORS", "false").lower() == "true"
 
-# Allow restricting origins via environment variable if needed
-custom_origins = os.environ.get("JELLYNOUNCER_ALLOWED_ORIGINS", "")
-if custom_origins and custom_origins != "*":
-    # If specific origins are set, use them instead
-    allowed_origins = [origin.strip() for origin in custom_origins.split(",")]
-    logger.info(f"CORS restricted to origins: {allowed_origins}")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+if cors_enabled:
+    # Get allowed origins from environment variable
+    custom_origins = os.environ.get("JELLYNOUNCER_ALLOWED_ORIGINS", "")
+    if custom_origins:
+        if custom_origins == "*":
+            allowed_origins = ["*"]
+        else:
+            allowed_origins = [origin.strip() for origin in custom_origins.split(",")]
+    else:
+        # Default to common development origins if CORS is enabled without specific origins
+        allowed_origins = [
+            "http://localhost:3000",
+            "http://localhost:5173",
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:5173",
+        ]
+    
+    logger.info(f"CORS enabled with origins: {allowed_origins}")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=allowed_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    logger.debug("CORS disabled (default for security). Set JELLYNOUNCER_ENABLE_CORS=true to enable.")
 
 # Add trusted host middleware for security
 if os.environ.get("JELLYNOUNCER_PRODUCTION"):
@@ -1896,26 +1921,8 @@ else:
             }
         )
     
-    # Add catch-all routes for SPA paths
-    @app.get("/config")
-    @app.get("/templates")
-    @app.get("/logs")
-    @app.get("/overview")
-    async def web_ui_not_built_spa():
-        return JSONResponse(
-            status_code=503,
-            content={
-                "error": "Web interface not built",
-                "message": "The web interface needs to be built before it can be served.",
-                "instructions": [
-                    "1. Navigate to the 'web' directory",
-                    "2. Run 'npm install' to install dependencies",
-                    "3. Run 'npm run build' to build the production files",
-                    "4. Restart the Jellynouncer service"
-                ],
-                "api_status": "The API endpoints are still available at /api/*"
-            }
-        )
+    # Note: When the build doesn't exist, the StaticFiles mount won't work,
+    # so we don't need explicit catch-all routes - the root handler above will catch everything
 
 
 # ==================== Main Entry Point ====================

@@ -448,6 +448,18 @@ async def webhook_debug_endpoint_deprecated(request: Request) -> Dict[str, Any]:
         },
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
+@app.options("/health")
+async def health_check_options():
+    """Handle CORS preflight requests for health endpoint"""
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Max-Age": "3600",
+    }
+    return JSONResponse(content={}, headers=headers)
+
+
 @app.get("/health")
 async def health_check():
     """
@@ -482,13 +494,21 @@ async def health_check():
         # Perform comprehensive health check
         health_data = await webhook_service.health_check()
 
+        # Add CORS headers for web interface access
+        # This is specifically needed for the web interface to check webhook service health
+        headers = {
+            "Access-Control-Allow-Origin": "*",  # Allow any origin for health checks
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type",
+        }
+
         # Return appropriate HTTP status based on health
         if health_data["status"] == "healthy":
-            return health_data
+            return JSONResponse(content=health_data, headers=headers)
         elif health_data["status"] == "degraded":
-            return JSONResponse(status_code=200, content=health_data)
+            return JSONResponse(status_code=200, content=health_data, headers=headers)
         else:
-            return JSONResponse(status_code=503, content=health_data)
+            return JSONResponse(status_code=503, content=health_data, headers=headers)
 
     except Exception as e:
         raise HTTPException(

@@ -51,3 +51,8 @@ node_modules/
 /content_logs.png
 /tests-examples/demo-todo-app.spec.js
 /test_home.png
+/fixed_config.png
+/fixed_home.png
+/fixed_logs.png
+/fixed_templates.png
+/test-after-fixes.js
