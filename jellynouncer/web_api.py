@@ -1377,6 +1377,82 @@ async def health_check():
     }
 
 
+@app.get("/api/debug/static-files")
+async def debug_static_files():
+    """Debug endpoint to check static file configuration"""
+    logger.info("Static files debug endpoint called")
+    
+    # Check which path we're using
+    if os.path.exists('/.dockerenv'):
+        web_dist_path = "/app/web/dist"
+        environment = "Docker"
+    else:
+        web_dist_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "web", "dist")
+        environment = "Local"
+    
+    result = {
+        "environment": environment,
+        "web_dist_path": web_dist_path,
+        "absolute_path": os.path.abspath(web_dist_path),
+        "exists": os.path.exists(web_dist_path),
+        "contents": {},
+        "routes": [],
+        "specific_assets": {},
+        "current_working_dir": os.getcwd()
+    }
+    
+    # Check if directory exists and list contents
+    if os.path.exists(web_dist_path):
+        try:
+            result["contents"]["root"] = os.listdir(web_dist_path)
+            
+            # Check assets directory
+            assets_path = os.path.join(web_dist_path, "assets")
+            if os.path.exists(assets_path):
+                asset_files = os.listdir(assets_path)
+                result["contents"]["assets"] = {
+                    "count": len(asset_files),
+                    "files": asset_files[:20]  # First 20 files
+                }
+                
+                # Check specific failing assets
+                failing_assets = [
+                    "index-BdASS8Ro.css",
+                    "index-Brl9qVFk.js", 
+                    "vendor-bSNdPxfD.js",
+                    "charts-DRG5hiZT.js"
+                ]
+                
+                for asset in failing_assets:
+                    asset_path = os.path.join(assets_path, asset)
+                    result["specific_assets"][asset] = {
+                        "exists": os.path.exists(asset_path),
+                        "size": os.path.getsize(asset_path) if os.path.exists(asset_path) else 0,
+                        "full_path": asset_path
+                    }
+            else:
+                result["contents"]["assets"] = "Directory not found"
+                
+        except Exception as e:
+            result["error"] = str(e)
+            logger.error(f"Error in debug endpoint: {e}", exc_info=True)
+    
+    # List app routes (limit to first 20 to avoid huge response)
+    for route in list(app.routes)[:20]:
+        route_info = {
+            "path": getattr(route, 'path', str(route)),
+            "type": route.__class__.__name__
+        }
+        if hasattr(route, 'methods'):
+            route_info["methods"] = list(route.methods)
+        result["routes"].append(route_info)
+    
+    result["total_routes"] = len(app.routes)
+    
+    logger.info(f"Debug static files check complete - found: {result['exists']}")
+    return result
+
+
 # ==================== SSL Certificate Management ====================
 
 @app.post("/api/ssl/upload")
@@ -1554,45 +1630,127 @@ async def generate_self_signed_cert(
 # IMPORTANT: This MUST come after all API route definitions
 # to ensure API routes take precedence over the catch-all static route
 
+logger.info("=" * 60)
+logger.info("STATIC FILE SETUP - DEBUG MODE")
+logger.info("=" * 60)
+
 # Determine the correct path for web dist
 if os.path.exists('/.dockerenv'):
     # Running in Docker
     web_dist_path = "/app/web/dist"
-    logger.info("Running in Docker environment - looking for static files at /app/web/dist")
+    logger.info("🐳 DOCKER ENVIRONMENT DETECTED")
+    logger.info(f"Looking for static files at: {web_dist_path}")
 else:
     # Running locally
     web_dist_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "web", "dist")
-    logger.info(f"Running locally - looking for static files at {web_dist_path}")
+    logger.info("💻 LOCAL ENVIRONMENT DETECTED")
+    logger.info(f"Looking for static files at: {web_dist_path}")
+
+# Check various possible paths (for debugging)
+possible_paths = [
+    web_dist_path,
+    "/app/web/dist",
+    os.path.join(os.path.dirname(__file__), "..", "web", "dist"),
+    os.path.join(os.getcwd(), "web", "dist"),
+    "web/dist"
+]
+
+logger.info("Checking possible static file paths:")
+for path in possible_paths:
+    exists = os.path.exists(path) if path else False
+    abs_path = os.path.abspath(path) if path else "N/A"
+    logger.info(f"  {path}: {'✓ EXISTS' if exists else '✗ NOT FOUND'} (abs: {abs_path})")
 
 # Check if the build exists
 if os.path.exists(web_dist_path):
-    logger.info(f"Web interface build found at {web_dist_path}")
+    logger.info(f"✓ Web interface build FOUND at {web_dist_path}")
+    logger.info(f"  Absolute path: {os.path.abspath(web_dist_path)}")
     
-    # Debug: List contents
+    # Debug: List ALL contents with details
     try:
         dist_contents = os.listdir(web_dist_path)
-        logger.debug(f"Dist directory contents: {dist_contents}")
+        logger.info(f"📁 Dist directory contains {len(dist_contents)} items:")
+        for item in dist_contents:
+            item_path = os.path.join(web_dist_path, item)
+            is_dir = os.path.isdir(item_path)
+            if is_dir:
+                try:
+                    sub_items = os.listdir(item_path)
+                    logger.info(f"  📁 {item}/ ({len(sub_items)} items)")
+                    # If it's the assets directory, list its contents
+                    if item == "assets":
+                        for asset in sub_items[:10]:  # First 10 assets
+                            asset_size = os.path.getsize(os.path.join(item_path, asset))
+                            logger.info(f"    📄 {asset} ({asset_size:,} bytes)")
+                except Exception as e:
+                    logger.error(f"    Error listing {item}: {e}")
+            else:
+                size = os.path.getsize(item_path)
+                logger.info(f"  📄 {item} ({size:,} bytes)")
         
-        # Check for assets directory
+        # Specifically check for the assets that are failing
         assets_path = os.path.join(web_dist_path, "assets")
         if os.path.exists(assets_path):
-            asset_files = os.listdir(assets_path)[:5]
-            logger.debug(f"Sample asset files: {asset_files}")
+            logger.info("✓ Assets directory exists")
+            failing_assets = [
+                "index-BdASS8Ro.css",
+                "index-Brl9qVFk.js",
+                "vendor-bSNdPxfD.js",
+                "charts-DRG5hiZT.js"
+            ]
+            logger.info("Checking for specific failing assets:")
+            for asset in failing_assets:
+                asset_path = os.path.join(assets_path, asset)
+                if os.path.exists(asset_path):
+                    size = os.path.getsize(asset_path)
+                    logger.info(f"  ✓ {asset} EXISTS ({size:,} bytes)")
+                else:
+                    logger.error(f"  ✗ {asset} NOT FOUND")
+        else:
+            logger.error(f"✗ Assets directory NOT FOUND at {assets_path}")
+            
     except Exception as e:
-        logger.error(f"Error listing directory contents: {e}")
+        logger.error(f"Error listing directory contents: {e}", exc_info=True)
     
     # Mount the static files
+    logger.info("Attempting to mount static files...")
+    
     # The order matters: specific routes first, then catch-all
     from fastapi.staticfiles import StaticFiles
     
-    # Mount the entire dist directory as the root
-    # The html=True option enables serving index.html for directory requests
-    app.mount("/", StaticFiles(directory=web_dist_path, html=True), name="static")
-    logger.info("Static files mounted successfully")
+    try:
+        # Mount the entire dist directory as the root
+        # The html=True option enables serving index.html for directory requests
+        static_files = StaticFiles(directory=web_dist_path, html=True)
+        app.mount("/", static_files, name="static")
+        logger.info("✓ Static files mount completed")
+        
+        # Log all registered routes for debugging
+        logger.info("Registered routes after static mount:")
+        for route in app.routes:
+            if hasattr(route, 'path'):
+                logger.info(f"  {route.path} -> {route.__class__.__name__}")
+            else:
+                logger.info(f"  {route} -> {route.__class__.__name__}")
+                
+    except Exception as e:
+        logger.error(f"✗ Failed to mount static files: {e}", exc_info=True)
+        
 else:
-    logger.warning(f"Web interface build not found at {web_dist_path}")
+    logger.error(f"✗ Web interface build NOT FOUND at {web_dist_path}")
+    logger.error(f"  Absolute path checked: {os.path.abspath(web_dist_path)}")
     logger.warning("The React frontend needs to be built first.")
     logger.warning("Run 'npm install && npm run build' in the web directory")
+    
+    # List what IS in the parent directory
+    parent_dir = os.path.dirname(web_dist_path)
+    if os.path.exists(parent_dir):
+        logger.info(f"Contents of parent directory {parent_dir}:")
+        try:
+            for item in os.listdir(parent_dir):
+                logger.info(f"  - {item}")
+        except Exception as e:
+            logger.error(f"Could not list parent directory: {e}")
     
     # Add a fallback route for when the build doesn't exist
     @app.get("/")
