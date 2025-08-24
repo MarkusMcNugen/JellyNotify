@@ -95,13 +95,13 @@ class ClientLogger {
     // Monitor online/offline status
     window.addEventListener('online', () => {
       this.isOnline = true;
-      this.info('Connection restored');
+      this.originalMethods.info('Connection restored');
       this.flushLogs(); // Send any pending logs
     });
     
     window.addEventListener('offline', () => {
       this.isOnline = false;
-      this.warn('Connection lost - logs will be queued');
+      this.originalMethods.warn('Connection lost - logs will be queued');
     });
     
     // Send logs before page unload
@@ -112,10 +112,10 @@ class ClientLogger {
     // Monitor page visibility
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
-        this.debug('Page hidden - flushing logs');
+        this.originalMethods.debug('Page hidden - flushing logs');
         this.flushLogs();
       } else {
-        this.debug('Page visible');
+        this.originalMethods.debug('Page visible');
       }
     });
     
@@ -202,7 +202,7 @@ class ClientLogger {
         const pendingLogs = JSON.parse(stored);
         this.logQueue = [...pendingLogs, ...this.logQueue];
         localStorage.removeItem(LOG_STORAGE_KEY);
-        this.debug(`Loaded ${pendingLogs.length} pending logs from storage`);
+        this.originalMethods.debug(`Loaded ${pendingLogs.length} pending logs from storage`);
       }
     } catch (e) {
       console.error('Failed to load pending logs:', e);
