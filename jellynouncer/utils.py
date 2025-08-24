@@ -281,8 +281,11 @@ def setup_logging(log_level: str = "INFO", log_dir: str = "/app/logs") -> loggin
     if not init_logger.handlers:
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.DEBUG)
-        console_handler.setFormatter(logging.Formatter('[%(asctime)s] [%(levelname)s] %(message)s'))
+        console_handler.setFormatter(logging.Formatter('[%(asctime)s] [COLOR-DEBUG] [%(levelname)s] %(message)s'))
         init_logger.addHandler(console_handler)
+    
+    # Force a debug message to console to verify it's working
+    print("[COLOR-DEBUG] Setup logging called - checking color initialization", file=sys.stderr)
     
     init_logger.debug("=" * 60)
     init_logger.debug("Color initialization starting...")
@@ -353,6 +356,13 @@ def setup_logging(log_level: str = "INFO", log_dir: str = "/app/logs") -> loggin
     init_logger.debug(f"Final decision - use_colors: {use_colors}")
     init_logger.debug("=" * 60)
     
+    # Force output to console to verify color decision
+    print(f"[COLOR-DEBUG] Final color decision: use_colors={use_colors}, colorama_available={COLORAMA_AVAILABLE}, in_docker={in_docker}, has_tty={has_tty}", file=sys.stderr)
+    
+    # Test if colors actually work
+    if use_colors and COLORAMA_AVAILABLE:
+        print(f"[COLOR-TEST] {Fore.RED}This should be red{Style.RESET_ALL} {Fore.GREEN}This should be green{Style.RESET_ALL}", file=sys.stderr)
+    
     class BracketFormatter(logging.Formatter):
         """
         Custom log formatter that uses brackets for structured, readable output.
@@ -367,6 +377,10 @@ def setup_logging(log_level: str = "INFO", log_dir: str = "/app/logs") -> loggin
             """Initialize formatter with color support option."""
             super().__init__()
             self.use_colors = use_color_output
+            
+            # Debug logging for formatter creation
+            debug_logger = logging.getLogger("jellynouncer.init")
+            debug_logger.debug(f"BracketFormatter created with use_colors={self.use_colors}, COLORAMA_AVAILABLE={COLORAMA_AVAILABLE}")
             
             # Only set up colors if requested
             if self.use_colors and COLORAMA_AVAILABLE:
@@ -533,6 +547,15 @@ def setup_logging(log_level: str = "INFO", log_dir: str = "/app/logs") -> loggin
 
     # Create the main application logger with the specified name
     logger = logging.getLogger("jellynouncer")
+    
+    # Check if logging is already set up
+    if logger.handlers:
+        print("[COLOR-DEBUG] Logging already set up, skipping re-initialization", file=sys.stderr)
+        # Just update the level if needed
+        logger.setLevel(numeric_level)
+        # Still return the logger but don't reconfigure
+        return logger
+    
     logger.setLevel(numeric_level)
 
     # Clear any existing handlers to prevent duplicate logs during testing/development
@@ -544,8 +567,11 @@ def setup_logging(log_level: str = "INFO", log_dir: str = "/app/logs") -> loggin
     console_handler = logging.StreamHandler()
     console_handler.setLevel(numeric_level)  # Use specified log level instead of hardcoded INFO
     # Use colored formatter for console output
-    console_handler.setFormatter(BracketFormatter(use_color_output=use_colors))
+    bracket_formatter = BracketFormatter(use_color_output=use_colors)
+    init_logger.debug(f"Creating BracketFormatter with use_colors={use_colors}")
+    console_handler.setFormatter(bracket_formatter)
     logger.addHandler(console_handler)
+    init_logger.debug(f"Added console handler to main logger with colors={use_colors}")
 
     # Rotating file handler to prevent logs from consuming unlimited disk space
     # This is crucial for production deployments that run continuously
@@ -573,9 +599,11 @@ def setup_logging(log_level: str = "INFO", log_dir: str = "/app/logs") -> loggin
 
     # Apply colored formatter to any existing jellynouncer loggers
     # This handles loggers that were created before setup_logging was called
-    for logger_name in logging.Logger.manager.loggerDict:
-        if logger_name.startswith("jellynouncer"):
+    init_logger.debug(f"Checking for existing loggers to update...")
+    for logger_name in list(logging.Logger.manager.loggerDict.keys()):
+        if logger_name.startswith("jellynouncer") and logger_name != "jellynouncer" and logger_name != "jellynouncer.init":
             existing_logger = logging.getLogger(logger_name)
+            init_logger.debug(f"Found existing logger: {logger_name}, has {len(existing_logger.handlers)} handlers")
             # Clear any existing handlers
             existing_logger.handlers.clear()
             # Add our colored console handler
@@ -587,7 +615,7 @@ def setup_logging(log_level: str = "INFO", log_dir: str = "/app/logs") -> loggin
             existing_logger.setLevel(numeric_level)
             # Prevent propagation to avoid duplicate logs
             existing_logger.propagate = False
-            init_logger.debug(f"Applied colored formatter to existing logger: {logger_name}")
+            init_logger.debug(f"Applied colored formatter to existing logger: {logger_name} (colors={use_colors})")
 
     # Log the configuration for verification and debugging
     # This helps administrators verify logging is set up correctly
@@ -756,8 +784,11 @@ def setup_web_logging(log_level: str = "INFO", log_dir: str = "/app/logs") -> lo
         client_logger.info("Client log received")
         ```
     """
-    # First call main setup_logging to set up colored console output
-    setup_logging(log_level, log_dir)
+    # Check if main logging is already set up
+    main_logger = logging.getLogger("jellynouncer")
+    if not main_logger.handlers:
+        # First call main setup_logging to set up colored console output
+        setup_logging(log_level, log_dir)
     
     # Now set up a separate file handler for web logs
     valid_levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
