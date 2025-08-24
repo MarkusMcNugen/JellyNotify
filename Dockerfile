@@ -14,8 +14,8 @@ COPY web/package*.json ./
 # Copy frontend source code
 COPY web/ ./
 
-# Build the production bundle
-RUN npm install
+# Install dependencies and build the production bundle
+RUN npm install && npm run build
 
 # ============================================
 # Stage 2: Python Base 

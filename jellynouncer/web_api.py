@@ -28,6 +28,7 @@ License: MIT
 """
 
 import os
+import sys
 import json
 import secrets
 import asyncio
@@ -175,12 +176,24 @@ class WebDatabaseManager:
     async def initialize(self):
         """Initialize the web database with required tables"""
         self.logger.debug(f"Starting database initialization at {self.db_path}")
+        
+        # Check if database exists
+        db_exists = os.path.exists(self.db_path)
+        self.logger.debug(f"Database exists: {db_exists}, size: {os.path.getsize(self.db_path) if db_exists else 0} bytes")
+        
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
         self.logger.debug(f"Ensured parent directory exists for {self.db_path}")
         
         async with aiosqlite.connect(self.db_path) as db:
             # Enable WAL mode for better concurrency
+            self.logger.debug("Setting database pragmas")
             await db.execute("PRAGMA journal_mode=WAL")
+            await db.execute("PRAGMA busy_timeout=5000")
+            
+            # Check current settings
+            cursor = await db.execute("PRAGMA journal_mode")
+            journal_mode = await cursor.fetchone()
+            self.logger.debug(f"Journal mode: {journal_mode[0] if journal_mode else 'unknown'}")
             
             # Security settings table
             await db.execute("""
@@ -386,41 +399,61 @@ class WebDatabaseManager:
 
 def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
     """Create a JWT access token"""
+    logger.debug(f"Creating access token for data: {data}")
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
         expire = datetime.now(timezone.utc) + timedelta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
     
+    logger.debug(f"Access token will expire at: {expire.isoformat()}")
     to_encode.update({"exp": expire.timestamp(), "type": "access"})
     encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+    logger.debug(f"Access token created, length: {len(encoded_jwt)} chars")
     return encoded_jwt
 
 
 def create_refresh_token(data: Dict[str, Any]) -> str:
     """Create a JWT refresh token"""
+    logger.debug(f"Creating refresh token for data: {data}")
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(days=JWT_REFRESH_TOKEN_EXPIRE_DAYS)
+    logger.debug(f"Refresh token will expire at: {expire.isoformat()}")
     to_encode.update({"exp": expire.timestamp(), "type": "refresh"})
     encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+    logger.debug(f"Refresh token created, length: {len(encoded_jwt)} chars")
     return encoded_jwt
 
 
 async def get_current_user_optional(credentials: Optional[HTTPAuthorizationCredentials] = Security(security)) -> Optional[Dict[str, Any]]:
     """Validate JWT token if provided, return user or None"""
     if not credentials:
+        logger.debug("No credentials provided in request")
         return None
         
     token = credentials.credentials
+    logger.debug(f"Validating JWT token (length: {len(token)} chars)")
     
     try:
         payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
         
-        if payload.get("type") != "access":
+        token_type = payload.get("type")
+        if token_type != "access":
+            logger.debug(f"Invalid token type: {token_type}, expected 'access'")
             return None
         
+        user_id = payload.get("user_id")
+        username = payload.get("username")
+        logger.debug(f"Token validated successfully for user {username} (ID: {user_id})")
         return payload
-    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+    except jwt.ExpiredSignatureError:
+        logger.warning("JWT token has expired")
+        return None
+    except jwt.InvalidTokenError as e:
+        logger.warning(f"Invalid JWT token: {str(e)}")
+        return None
+    except Exception as e:
+        logger.error(f"Unexpected error validating JWT: {str(e)}", exc_info=True)
         return None
 
 
@@ -430,8 +463,11 @@ async def check_auth_required(user: Optional[Dict[str, Any]] = Depends(get_curre
     web_db = WebDatabaseManager()
     settings = await web_db.get_security_settings()
     
+    logger.debug(f"Auth check - enabled: {settings['auth_enabled']}, user present: {user is not None}")
+    
     if settings["auth_enabled"]:
         if not user:
+            logger.debug("Authentication required but no valid user token provided")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Authentication required",
@@ -861,24 +897,66 @@ async def lifespan(app_instance: FastAPI):
     logger = get_logger("jellynouncer.web_api")
     
     # Startup
+    logger.info("=" * 60)
     logger.info("Starting Jellynouncer Web Interface...")
+    logger.info("=" * 60)
+    
+    logger.debug(f"Environment variables:")
+    logger.debug(f"  LOG_LEVEL: {log_level}")
+    logger.debug(f"  LOG_DIR: {log_dir}")
+    logger.debug(f"  WEB_PORT: {os.environ.get('WEB_PORT', '1985')}")
+    logger.debug(f"  JELLYNOUNCER_RUN_MODE: {os.environ.get('JELLYNOUNCER_RUN_MODE', 'all')}")
+    logger.debug(f"  JWT_SECRET_KEY: {'SET' if JWT_SECRET_KEY else 'NOT SET'} (length: {len(JWT_SECRET_KEY)} chars)")
+    logger.debug(f"  Working directory: {os.getcwd()}")
+    logger.debug(f"  Python version: {sys.version}")
+    
     logger.info(f"Web logs will be written to {log_dir}/jellynouncer-web.log")
-    await web_service.initialize()
+    
+    try:
+        logger.debug("Initializing web service...")
+        await web_service.initialize()
+        logger.debug("Web service initialization complete")
+    except Exception as e:
+        logger.error(f"Failed to initialize web service: {str(e)}", exc_info=True)
+        raise
     
     # Setup SSL routes
-    await setup_ssl_routes(app_instance, web_service.ssl_manager)
+    try:
+        logger.debug("Setting up SSL routes...")
+        await setup_ssl_routes(app_instance, web_service.ssl_manager)
+        logger.debug("SSL routes configured")
+    except Exception as e:
+        logger.error(f"Failed to setup SSL routes: {str(e)}", exc_info=True)
+        # Non-critical, continue
     
     # Check SSL configuration
-    ssl_settings = await web_service.ssl_manager.get_ssl_settings()
-    if ssl_settings.get("ssl_enabled"):
-        logger.info(f"SSL enabled on port {ssl_settings.get('port', 9000)}")
-    else:
-        logger.info("Web interface ready on port 1985 (HTTP)")
+    try:
+        ssl_settings = await web_service.ssl_manager.get_ssl_settings()
+        if ssl_settings.get("ssl_enabled"):
+            logger.info(f"SSL enabled on port {ssl_settings.get('port', 9000)}")
+        else:
+            logger.info("Web interface ready on port 1985 (HTTP)")
+    except Exception as e:
+        logger.warning(f"Could not check SSL settings: {str(e)}")
+        logger.info("Web interface ready (SSL status unknown)")
+    
+    logger.info("Web interface startup complete")
+    logger.debug(f"Total registered routes: {len(app_instance.routes)}")
     
     yield
     
     # Shutdown
+    logger.info("=" * 60)
     logger.info("Shutting down web interface...")
+    logger.info("=" * 60)
+    
+    try:
+        # Cleanup tasks if needed
+        logger.debug("Performing cleanup tasks...")
+        # Add any cleanup code here
+        logger.debug("Cleanup complete")
+    except Exception as e:
+        logger.error(f"Error during shutdown: {str(e)}", exc_info=True)
 
 
 # Create FastAPI app
@@ -1009,9 +1087,13 @@ else:
 @app.post("/api/auth/login", response_model=TokenResponse)
 async def login(user_login: UserLogin, request: Request):
     """Authenticate user and return JWT tokens"""
+    client_ip = request.client.host if request.client else "unknown"
+    logger.debug(f"Login attempt from {client_ip} for user: {user_login.username}")
+    
     user = await web_service.web_db.verify_user(user_login.username, user_login.password)
     
     if not user:
+        logger.warning(f"Failed login attempt for username: {user_login.username} from {client_ip}")
         # Log failed attempt
         await web_service.web_db.log_audit(
             None, "login_failed", f"Username: {user_login.username}", 
@@ -1022,9 +1104,13 @@ async def login(user_login: UserLogin, request: Request):
             detail="Invalid username or password"
         )
     
+    logger.debug(f"User {user_login.username} authenticated successfully, creating tokens")
+    
     # Create tokens
     access_token = create_access_token({"user_id": user["id"], "username": user["username"]})
     user_refresh_token = create_refresh_token({"user_id": user["id"]})
+    
+    logger.debug(f"Tokens created for user {user['id']}, saving refresh token")
     
     # Save refresh token
     expires_at = datetime.now(timezone.utc) + timedelta(days=JWT_REFRESH_TOKEN_EXPIRE_DAYS)
@@ -1034,6 +1120,8 @@ async def login(user_login: UserLogin, request: Request):
     await web_service.web_db.log_audit(
         user["id"], "login_success", None, request.client.host
     )
+    
+    logger.info(f"User {user_login.username} logged in successfully from {client_ip}")
     
     return TokenResponse(
         access_token=access_token,
@@ -1202,7 +1290,10 @@ async def get_overview(current_user: Optional[Dict] = Depends(check_auth_require
 @app.get("/api/config")
 async def get_config(current_user: Optional[Dict] = Depends(check_auth_required)):
     """Get current configuration"""
-    return await web_service.get_config(include_sensitive=False)
+    logger.debug(f"Config requested by user: {current_user.get('username') if current_user else 'anonymous'}")
+    config = await web_service.get_config(include_sensitive=False)
+    logger.debug(f"Returning config with {len(config)} sections")
+    return config
 
 
 @app.put("/api/config")
@@ -1211,12 +1302,23 @@ async def update_config(
     current_user: Optional[Dict] = Depends(check_auth_required)
 ):
     """Update configuration value"""
+    logger.debug(f"Config update request: {config_update.section}.{config_update.key} by user {current_user.get('username') if current_user else 'anonymous'}")
+    
+    # Log the value type but not the actual value (could be sensitive)
+    value_type = type(config_update.value).__name__
+    logger.debug(f"Value type: {value_type}, is_none: {config_update.value is None}")
+    
     try:
         success = await web_service.update_config(
             config_update.section,
             config_update.key,
             config_update.value
         )
+        
+        if success:
+            logger.info(f"Configuration updated: {config_update.section}.{config_update.key}")
+        else:
+            logger.warning(f"Configuration update failed: {config_update.section}.{config_update.key}")
         
         if current_user:
             await web_service.web_db.log_audit(
@@ -1229,6 +1331,7 @@ async def update_config(
         return {"success": success, "message": "Configuration updated"}
         
     except Exception as e:
+        logger.error(f"Error updating config {config_update.section}.{config_update.key}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
@@ -1630,21 +1733,21 @@ async def generate_self_signed_cert(
 # IMPORTANT: This MUST come after all API route definitions
 # to ensure API routes take precedence over the catch-all static route
 
-logger.info("=" * 60)
-logger.info("STATIC FILE SETUP - DEBUG MODE")
-logger.info("=" * 60)
+logger.debug("=" * 60)
+logger.debug("STATIC FILE SETUP - DEBUG MODE")
+logger.debug("=" * 60)
 
 # Determine the correct path for web dist
 if os.path.exists('/.dockerenv'):
     # Running in Docker
     web_dist_path = "/app/web/dist"
-    logger.info("🐳 DOCKER ENVIRONMENT DETECTED")
-    logger.info(f"Looking for static files at: {web_dist_path}")
+    logger.debug("🐳 DOCKER ENVIRONMENT DETECTED")
+    logger.debug(f"Looking for static files at: {web_dist_path}")
 else:
     # Running locally
     web_dist_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "web", "dist")
-    logger.info("💻 LOCAL ENVIRONMENT DETECTED")
-    logger.info(f"Looking for static files at: {web_dist_path}")
+    logger.debug("💻 LOCAL ENVIRONMENT DETECTED")
+    logger.debug(f"Looking for static files at: {web_dist_path}")
 
 # Check various possible paths (for debugging)
 possible_paths = [
@@ -1655,55 +1758,55 @@ possible_paths = [
     "web/dist"
 ]
 
-logger.info("Checking possible static file paths:")
+logger.debug("Checking possible static file paths:")
 for path in possible_paths:
     exists = os.path.exists(path) if path else False
     abs_path = os.path.abspath(path) if path else "N/A"
-    logger.info(f"  {path}: {'✓ EXISTS' if exists else '✗ NOT FOUND'} (abs: {abs_path})")
+    logger.debug(f"  {path}: {'✓ EXISTS' if exists else '✗ NOT FOUND'} (abs: {abs_path})")
 
 # Check if the build exists
 if os.path.exists(web_dist_path):
-    logger.info(f"✓ Web interface build FOUND at {web_dist_path}")
-    logger.info(f"  Absolute path: {os.path.abspath(web_dist_path)}")
+    logger.info(f"✓ Web interface build found at {web_dist_path}")
+    logger.debug(f"  Absolute path: {os.path.abspath(web_dist_path)}")
     
     # Debug: List ALL contents with details
     try:
         dist_contents = os.listdir(web_dist_path)
-        logger.info(f"📁 Dist directory contains {len(dist_contents)} items:")
+        logger.debug(f"📁 Dist directory contains {len(dist_contents)} items:")
         for item in dist_contents:
             item_path = os.path.join(web_dist_path, item)
             is_dir = os.path.isdir(item_path)
             if is_dir:
                 try:
                     sub_items = os.listdir(item_path)
-                    logger.info(f"  📁 {item}/ ({len(sub_items)} items)")
+                    logger.debug(f"  📁 {item}/ ({len(sub_items)} items)")
                     # If it's the assets directory, list its contents
                     if item == "assets":
                         for asset in sub_items[:10]:  # First 10 assets
                             asset_size = os.path.getsize(os.path.join(item_path, asset))
-                            logger.info(f"    📄 {asset} ({asset_size:,} bytes)")
+                            logger.debug(f"    📄 {asset} ({asset_size:,} bytes)")
                 except Exception as e:
                     logger.error(f"    Error listing {item}: {e}")
             else:
                 size = os.path.getsize(item_path)
-                logger.info(f"  📄 {item} ({size:,} bytes)")
+                logger.debug(f"  📄 {item} ({size:,} bytes)")
         
         # Specifically check for the assets that are failing
         assets_path = os.path.join(web_dist_path, "assets")
         if os.path.exists(assets_path):
-            logger.info("✓ Assets directory exists")
+            logger.debug("✓ Assets directory exists")
             failing_assets = [
                 "index-BdASS8Ro.css",
                 "index-Brl9qVFk.js",
                 "vendor-bSNdPxfD.js",
                 "charts-DRG5hiZT.js"
             ]
-            logger.info("Checking for specific failing assets:")
+            logger.debug("Checking for specific failing assets:")
             for asset in failing_assets:
                 asset_path = os.path.join(assets_path, asset)
                 if os.path.exists(asset_path):
                     size = os.path.getsize(asset_path)
-                    logger.info(f"  ✓ {asset} EXISTS ({size:,} bytes)")
+                    logger.debug(f"  ✓ {asset} EXISTS ({size:,} bytes)")
                 else:
                     logger.error(f"  ✗ {asset} NOT FOUND")
         else:
@@ -1713,7 +1816,7 @@ if os.path.exists(web_dist_path):
         logger.error(f"Error listing directory contents: {e}", exc_info=True)
     
     # Mount the static files
-    logger.info("Attempting to mount static files...")
+    logger.debug("Attempting to mount static files...")
     
     # The order matters: specific routes first, then catch-all
     from fastapi.staticfiles import StaticFiles
@@ -1723,32 +1826,32 @@ if os.path.exists(web_dist_path):
         # The html=True option enables serving index.html for directory requests
         static_files = StaticFiles(directory=web_dist_path, html=True)
         app.mount("/", static_files, name="static")
-        logger.info("✓ Static files mount completed")
+        logger.info("✓ Static files mounted successfully")
         
         # Log all registered routes for debugging
-        logger.info("Registered routes after static mount:")
+        logger.debug("Registered routes after static mount:")
         for route in app.routes:
             if hasattr(route, 'path'):
-                logger.info(f"  {route.path} -> {route.__class__.__name__}")
+                logger.debug(f"  {route.path} -> {route.__class__.__name__}")
             else:
-                logger.info(f"  {route} -> {route.__class__.__name__}")
+                logger.debug(f"  {route} -> {route.__class__.__name__}")
                 
     except Exception as e:
         logger.error(f"✗ Failed to mount static files: {e}", exc_info=True)
         
 else:
     logger.error(f"✗ Web interface build NOT FOUND at {web_dist_path}")
-    logger.error(f"  Absolute path checked: {os.path.abspath(web_dist_path)}")
+    logger.debug(f"  Absolute path checked: {os.path.abspath(web_dist_path)}")
     logger.warning("The React frontend needs to be built first.")
     logger.warning("Run 'npm install && npm run build' in the web directory")
     
     # List what IS in the parent directory
     parent_dir = os.path.dirname(web_dist_path)
     if os.path.exists(parent_dir):
-        logger.info(f"Contents of parent directory {parent_dir}:")
+        logger.debug(f"Contents of parent directory {parent_dir}:")
         try:
             for item in os.listdir(parent_dir):
-                logger.info(f"  - {item}")
+                logger.debug(f"  - {item}")
         except Exception as e:
             logger.error(f"Could not list parent directory: {e}")
     
