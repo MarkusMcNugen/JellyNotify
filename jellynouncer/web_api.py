@@ -30,7 +30,6 @@ License: MIT
 import os
 import json
 import secrets
-import asyncio
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional, List
@@ -52,7 +51,7 @@ import bcrypt
 
 # Import Jellynouncer modules
 from jellynouncer.config_models import ConfigurationValidator
-from jellynouncer.utils import get_logger, get_web_logger, setup_web_logging
+from jellynouncer.utils import get_web_logger, setup_web_logging
 from jellynouncer.webhook_service import WebhookService
 from jellynouncer.ssl_manager import SSLManager, setup_ssl_routes
 from jellynouncer.security_middleware import setup_security_middleware
@@ -296,8 +295,8 @@ class WebDatabaseManager:
     
     async def create_user(self, username: str, password: str, email: Optional[str] = None, is_admin: bool = False) -> int:
         """Create a new user with salt and hash"""
-        salt = AuthenticationDB._generate_salt()
-        hashed_password = AuthenticationDB._hash_password_with_salt(password, salt)
+        salt = self._generate_salt()
+        hashed_password = self._hash_password_with_salt(password, salt)
         
         async with aiosqlite.connect(self.db_path) as db:
             try:
@@ -320,7 +319,7 @@ class WebDatabaseManager:
             )
             user = await cursor.fetchone()
             
-            if user and AuthenticationDB._verify_password_with_salt(password, user["salt"], user["password_hash"]):
+            if user and self._verify_password_with_salt(password, user["salt"], user["password_hash"]):
                 # Update last login
                 await db.execute(
                     "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?",
@@ -333,8 +332,8 @@ class WebDatabaseManager:
     
     async def update_user_password(self, user_id: int, new_password: str):
         """Update user password with new salt"""
-        salt = AuthenticationDB._generate_salt()
-        hashed_password = AuthenticationDB._hash_password_with_salt(new_password, salt)
+        salt = self._generate_salt()
+        hashed_password = self._hash_password_with_salt(new_password, salt)
         
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
@@ -544,8 +543,7 @@ class WebInterfaceService:
     async def get_overview_stats(self) -> OverviewStats:
         """Get statistics for the overview page"""
         import psutil
-        import os
-        from datetime import datetime, timedelta, timezone
+        from datetime import datetime, timezone
         
         stats = {
             "total_items": 0,
@@ -865,18 +863,6 @@ async def lifespan(app_instance: FastAPI):
     # Setup SSL routes
     await setup_ssl_routes(app_instance, web_service.ssl_manager)
     
-    # Setup security middleware
-    security_config = {
-        "rate_limit": 60,
-        "rate_window": 60,
-        "max_auth_attempts": 5,
-        "ban_duration": 30,
-        "exempt_paths": ["/webhook", "/health", "/api/health", "/api/auth/status"],
-        "enable_hsts": True,
-        "enable_csp": True
-    }
-    setup_security_middleware(app_instance, security_config)
-    
     # Try to connect to webhook service if available
     # This would be passed in from main.py when both services run together
     
@@ -900,6 +886,18 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+# Setup security middleware - must be done immediately after app creation
+security_config = {
+    "rate_limit": 60,
+    "rate_window": 60,
+    "max_auth_attempts": 5,
+    "ban_duration": 30,
+    "exempt_paths": ["/webhook", "/health", "/api/health", "/api/auth/status"],
+    "enable_hsts": True,
+    "enable_csp": True
+}
+setup_security_middleware(app, security_config)
 
 # Request/Response logging middleware
 @app.middleware("http")
@@ -1501,9 +1499,9 @@ async def generate_self_signed_cert(
         ).serial_number(
             x509.random_serial_number()
         ).not_valid_before(
-            datetime.utcnow()
+            datetime.now(timezone.utc)
         ).not_valid_after(
-            datetime.utcnow() + timedelta(days=days)
+            datetime.now(timezone.utc) + timedelta(days=days)
         ).add_extension(
             x509.SubjectAlternativeName([
                 x509.DNSName(common_name),

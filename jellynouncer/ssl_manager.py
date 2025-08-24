@@ -299,7 +299,7 @@ class SSLManager:
             )
             
             # Generate unique filenames
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             safe_cn = common_name.replace("*", "wildcard").replace(".", "_")
             
             csr_filename = f"csr_{safe_cn}_{timestamp}.pem"
@@ -774,7 +774,7 @@ async def setup_ssl_routes(app, ssl_manager: SSLManager):
     ):
         """Upload and validate a certificate"""
         # Save uploaded file
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         filename = f"cert_{timestamp}_{file.filename}"
         file_path = ssl_manager.cert_dir / filename
         

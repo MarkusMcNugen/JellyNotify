@@ -11,7 +11,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Any, Tuple
 from urllib.parse import urljoin
 
@@ -306,7 +306,7 @@ class TVDB:
 
     def _clean_old_cache_entries(self) -> None:
         """Remove expired cache entries."""
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         expired_keys = [
             key for key, (_, timestamp) in self.cache.items()
             if now - timestamp > timedelta(seconds=self.cache_ttl)
@@ -321,7 +321,7 @@ class TVDB:
 
         if cache_key in self.cache:
             data, timestamp = self.cache[cache_key]
-            if datetime.now() - timestamp < timedelta(seconds=self.cache_ttl):
+            if datetime.now(timezone.utc) - timestamp < timedelta(seconds=self.cache_ttl):
                 self.logger.debug(f"Cache hit for key: {cache_key}")
                 return data
             else:
@@ -332,7 +332,7 @@ class TVDB:
     def _store_in_cache(self, cache_key: str, data: Dict) -> None:
         """Store data in cache."""
         if self.enable_caching:
-            self.cache[cache_key] = (data, datetime.now())
+            self.cache[cache_key] = (data, datetime.now(timezone.utc))
             if len(self.cache) % 50 == 0:
                 self._clean_old_cache_entries()
 
@@ -517,7 +517,7 @@ class TVDB:
         if not self.bearer_token:
             return False
 
-        if self.token_expires_at and datetime.now() >= self.token_expires_at:
+        if self.token_expires_at and datetime.now(timezone.utc) >= self.token_expires_at:
             self.logger.info("Bearer token expired, need to re-authenticate")
             return False
 
@@ -552,7 +552,7 @@ class TVDB:
             if "data" in response_data and "token" in response_data["data"]:
                 self.bearer_token = response_data["data"]["token"]
                 # Token expires in 30 days, but we'll refresh after 28 for safety
-                self.token_expires_at = datetime.now() + timedelta(days=28)
+                self.token_expires_at = datetime.now(timezone.utc) + timedelta(days=28)
 
                 access_mode = "subscriber" if self.pin else "standard"
                 self.logger.info(f"Successfully authenticated with TVDB API ({access_mode} mode)")

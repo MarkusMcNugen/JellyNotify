@@ -416,11 +416,27 @@ def setup_logging(log_level: str = "INFO", log_dir: str = "/app/logs") -> loggin
                 Output: "[2025-01-15 10:30:45 UTC][system][INFO][jellynouncer.db] Database connected"
                 (with green coloring for INFO level when colors are enabled)
             """
-            # Get UTC timestamp for consistency across time zones and deployments
-            timestamp = datetime.fromtimestamp(
-                record.created,
-                tz=timezone.utc
-            ).strftime('%Y-%m-%d %H:%M:%S UTC')
+            # Get timestamp - use TZ environment variable if set (for Docker), otherwise UTC
+            # This allows Docker containers to display logs in their configured timezone
+            tz_env = os.environ.get('TZ')
+            if tz_env:
+                # Try to use the system's local timezone as configured by TZ env var
+                # The timestamp will be in local time
+                timestamp = datetime.fromtimestamp(record.created).strftime('%Y-%m-%d %H:%M:%S')
+                # Add timezone abbreviation if we can determine it
+                try:
+                    import time
+                    tz_name = time.tzname[time.daylight]
+                    timestamp = f"{timestamp} {tz_name}"
+                except:
+                    # If we can't get timezone name, just show the time without zone
+                    pass
+            else:
+                # Default to UTC for consistency when TZ is not set
+                timestamp = datetime.fromtimestamp(
+                    record.created,
+                    tz=timezone.utc
+                ).strftime('%Y-%m-%d %H:%M:%S UTC')
 
             # User context available via getattr(record, 'user', 'system') if needed
             # This allows tracking which user or process generated the log message

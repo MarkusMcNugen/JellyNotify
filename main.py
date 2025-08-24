@@ -49,19 +49,26 @@ class ServiceLauncher:
     def __init__(self):
         self.webhook_process: Optional[Process] = None
         self.web_process: Optional[Process] = None
-        self.logger = get_logger("launcher")
+        self.logger = None  # Will be initialized after setup_logging
         self.running = False
         
     def start_webhook_service(self):
         """Start the webhook service in a separate process"""
         try:
             # Setup logging for the webhook service process
-            setup_logging()
+            log_level = os.environ.get("LOG_LEVEL", "INFO")
+            log_dir = os.environ.get("LOG_DIR", "/app/logs")
+            if not os.path.exists('/.dockerenv'):
+                log_dir = "logs"
+            setup_logging(log_level, log_dir)
+            
+            # Get logger after setup_logging
+            logger = get_logger("launcher")
             
             # Import here to avoid circular imports
             from jellynouncer import webhook_api
             
-            self.logger.info("Starting Webhook Service on port 1984...")
+            logger.info("Starting Webhook Service on port 1984...")
             
             # Run the webhook service
             import uvicorn
@@ -73,19 +80,27 @@ class ServiceLauncher:
                 access_log=False  # We have our own logging
             )
         except Exception as e:
-            self.logger.error(f"Webhook service failed: {e}")
+            logger = get_logger("launcher")
+            logger.error(f"Webhook service failed: {e}")
             sys.exit(1)
     
     def start_web_service(self):
         """Start the web interface in a separate process"""
         try:
             # Setup logging for the web service process
-            setup_logging()
+            log_level = os.environ.get("LOG_LEVEL", "INFO")
+            log_dir = os.environ.get("LOG_DIR", "/app/logs")
+            if not os.path.exists('/.dockerenv'):
+                log_dir = "logs"
+            setup_logging(log_level, log_dir)
+            
+            # Get logger after setup_logging
+            logger = get_logger("launcher")
             
             # Import here to avoid circular imports
             from jellynouncer import web_api
             
-            self.logger.info("Starting Web Interface on port 1985...")
+            logger.info("Starting Web Interface on port 1985...")
             
             # Check if SSL is configured
             loop = asyncio.new_event_loop()
@@ -95,7 +110,7 @@ class ServiceLauncher:
             port = ssl_config.get("port", 1985)
             protocol = "https" if ssl_config.get("ssl_context") else "http"
             
-            self.logger.info(f"Web Interface will be available at {protocol}://localhost:{port}")
+            logger.info(f"Web Interface will be available at {protocol}://localhost:{port}")
             
             # Run the web interface
             import uvicorn
@@ -109,14 +124,16 @@ class ServiceLauncher:
                 access_log=False  # We have our own logging
             )
         except Exception as e:
-            self.logger.error(f"Web service failed: {e}")
+            logger = get_logger("launcher")
+            logger.error(f"Web service failed: {e}")
             sys.exit(1)
     
     def signal_handler(self, signum, frame):
         """Handle shutdown signals gracefully"""
         # frame parameter is required by signal handler signature but not used
         _ = frame
-        self.logger.info(f"Received signal {signum}, shutting down services...")
+        if self.logger:
+            self.logger.info(f"Received signal {signum}, shutting down services...")
         self.shutdown()
     
     def shutdown(self):
@@ -124,26 +141,36 @@ class ServiceLauncher:
         self.running = False
         
         if self.webhook_process and self.webhook_process.is_alive():
-            self.logger.info("Stopping webhook service...")
+            if self.logger:
+                self.logger.info("Stopping webhook service...")
             self.webhook_process.terminate()
             self.webhook_process.join(timeout=5)
             if self.webhook_process.is_alive():
                 self.webhook_process.kill()
         
         if self.web_process and self.web_process.is_alive():
-            self.logger.info("Stopping web interface...")
+            if self.logger:
+                self.logger.info("Stopping web interface...")
             self.web_process.terminate()
             self.web_process.join(timeout=5)
             if self.web_process.is_alive():
                 self.web_process.kill()
         
-        self.logger.info("All services stopped")
+        if self.logger:
+            self.logger.info("All services stopped")
     
     def run(self):
         """Main entry point to run both services"""
         try:
             # Setup logging
-            setup_logging()
+            log_level = os.environ.get("LOG_LEVEL", "INFO")
+            log_dir = os.environ.get("LOG_DIR", "/app/logs")
+            if not os.path.exists('/.dockerenv'):
+                log_dir = "logs"
+            setup_logging(log_level, log_dir)
+            
+            # Now initialize the logger after setup_logging
+            self.logger = get_logger("launcher")
             
             # Log startup banner
             log_jellynouncer_startup()
