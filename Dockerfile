@@ -11,10 +11,6 @@ WORKDIR /build
 # Copy package files for dependency caching
 COPY web/package*.json ./
 
-# Install dependencies using ci for reproducible builds
-# npm ci is preferred over npm install when package-lock.json exists
-RUN npm ci --omit=dev
-
 # Copy frontend source code
 COPY web/ ./
 
