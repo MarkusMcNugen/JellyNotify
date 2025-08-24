@@ -16,6 +16,7 @@ import {
   DocumentArrowDownIcon,
   LockClosedIcon,
 } from '@heroicons/react/24/outline';
+import { apiService } from '../services/api';
 import { apiClient } from '../utils/apiClient';
 import logger from '../services/logger';
 
@@ -155,7 +156,7 @@ const Config = () => {
     try {
       setLoading(true);
       logger.debug('Config: Fetching from /api/config');
-      const response = await apiClient.get('/api/config');
+      const response = await apiService.getConfig();
       logger.info('Config: Data received', {
         hasData: !!response.data,
         keys: response.data ? Object.keys(response.data) : []

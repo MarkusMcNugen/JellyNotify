@@ -22,7 +22,7 @@ import {
   TvIcon,
   MusicalNoteIcon,
 } from '@heroicons/react/24/outline';
-import { apiClient } from '../utils/apiClient';
+import { apiService } from '../services/api';
 import JellyfinStats from '../components/JellyfinStats';
 import logger from '../services/logger';
 
@@ -57,8 +57,8 @@ const Overview = () => {
       logger.debug('Overview: Making API calls to /api/overview and /api/health');
       
       const [overviewData, healthData] = await Promise.all([
-        apiClient.get('/api/overview'),
-        apiClient.get('/api/health'),
+        apiService.getOverview(),
+        apiService.healthCheck(),
       ]);
 
       logger.info('Overview: API responses received', {
