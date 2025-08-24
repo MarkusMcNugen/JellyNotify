@@ -654,7 +654,7 @@ class WebInterfaceService:
             self.logger.warning(f"Could not get Jellyfin stats: {e}")
         
         # Get statistics from main database if webhook service is available
-        if self.webhook_service and self.webhook_service.db:
+        if self.webhook_service and hasattr(self.webhook_service, 'db') and self.webhook_service.db:
             try:
                 db_stats = await self.webhook_service.db.get_statistics()
                 stats["total_items"] = db_stats.get("total_items", 0)
@@ -675,7 +675,7 @@ class WebInterfaceService:
                 ]
                 
                 # Discord webhook status
-                if self.webhook_service.discord:
+                if hasattr(self.webhook_service, 'discord') and self.webhook_service.discord:
                     for webhook_name, webhook_url in self.webhook_service.discord.webhooks.items():
                         stats["discord_webhooks"][webhook_name] = {
                             "configured": bool(webhook_url),
@@ -686,6 +686,10 @@ class WebInterfaceService:
             except Exception as e:
                 self.logger.error(f"Failed to get database statistics: {e}")
                 stats["system_health"]["database"] = "error"
+        else:
+            # Running in standalone mode without webhook service
+            self.logger.debug("Running in standalone mode - limited statistics available")
+            stats["system_health"]["webhook_service"] = "not available (standalone mode)"
         
         return OverviewStats(**stats)
     
@@ -968,6 +972,19 @@ app = FastAPI(
 )
 
 # Setup security middleware - must be done immediately after app creation
+# Custom CSP policy to allow connections to webhook service
+csp_policy = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+    "font-src 'self' data: https://fonts.gstatic.com; "
+    "img-src 'self' data: https: blob:; "
+    "connect-src 'self' ws: wss: https: http://localhost:1984 http://localhost:1985 http://*:1984 http://*:1985; "
+    "frame-ancestors 'none'; "
+    "base-uri 'self'; "
+    "form-action 'self'"
+)
+
 security_config = {
     "rate_limit": 60,
     "rate_window": 60,
@@ -975,7 +992,8 @@ security_config = {
     "ban_duration": 30,
     "exempt_paths": ["/webhook", "/health", "/api/health", "/api/auth/status"],
     "enable_hsts": True,
-    "enable_csp": True
+    "enable_csp": True,
+    "csp_policy": csp_policy
 }
 setup_security_middleware(app, security_config)
 

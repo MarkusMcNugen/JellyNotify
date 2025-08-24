@@ -72,7 +72,7 @@ The service acts as a smart filter between Jellyfin's webhook events and Discord
 > [!WARNING]
 > **ALPHA SOFTWARE NOTICE**
 > 
-> This software is currently in alpha development. While core functionality may sometimes be stable, you may encounter bbreaking bugs at any time while ongoing development occurs.
+> This software is currently in alpha development. While core functionality may sometimes be stable, you may encounter critical bugs at any time while ongoing development occurs.
 
 ## ✨ Key Features
 
