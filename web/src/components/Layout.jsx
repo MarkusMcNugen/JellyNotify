@@ -3,14 +3,16 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import ConnectionStatus from './ConnectionStatus';
 import DarkModeToggle from './DarkModeToggle';
+import AuthSetup from './AuthSetup';
 import { Icon, IconDuotone, IconLight } from './FontAwesomeIcon';
 import logger from '../services/logger';
 
 const Layout = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { isAuthenticated, logout, user } = useAuthStore();
+  const { isAuthenticated, logout, user, authRequired } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showAuthSetup, setShowAuthSetup] = useState(false);
 
   const navigation = [
     { name: 'Overview', href: '/', icon: 'home', style: 'duotone' },
@@ -79,26 +81,39 @@ const Layout = () => {
             ))}
           </div>
 
-          {isAuthenticated && (
-            <div className="px-4 py-4 border-t border-gray-200 dark:border-gray-700">
-              <div className="flex items-center">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {user?.username || 'User'}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {user?.email || 'user@example.com'}
-                  </p>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="ml-3 p-2 text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-300"
-                >
-                  <IconDuotone icon="sign-out-alt" />
-                </button>
+          {/* User info section - always visible */}
+          <div className="px-4 py-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex items-center">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  {user?.username || (authRequired ? 'User' : 'Admin (No Auth)')}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {user?.email || (authRequired ? 'user@example.com' : 'Authentication Disabled')}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {!authRequired && (
+                  <button
+                    onClick={() => setShowAuthSetup(true)}
+                    className="p-2 text-yellow-500 hover:text-yellow-600 dark:text-yellow-400 dark:hover:text-yellow-300"
+                    title="Enable Authentication"
+                  >
+                    <IconDuotone icon="exclamation-triangle" size="sm" />
+                  </button>
+                )}
+                {authRequired && (
+                  <button
+                    onClick={handleLogout}
+                    className="p-2 text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-300"
+                    title="Logout"
+                  >
+                    <IconDuotone icon="sign-out-alt" size="sm" />
+                  </button>
+                )}
               </div>
             </div>
-          )}
+          </div>
         </nav>
       </div>
 
@@ -131,23 +146,34 @@ const Layout = () => {
             ))}
           </div>
 
-          {isAuthenticated && (
-            <div className="px-4 py-4 border-t border-gray-200 dark:border-gray-700">
-              <div className="flex items-center">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {user?.username || 'User'}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {user?.email || 'user@example.com'}
-                  </p>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="ml-3 p-2 text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-300"
-                  title="Logout"
-                >
-                  <IconDuotone icon="sign-out-alt" />
+          {/* User info section - always visible */}
+          <div className="px-4 py-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex items-center">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  {user?.username || (authRequired ? 'User' : 'Admin (No Auth)')}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {user?.email || (authRequired ? 'user@example.com' : 'Authentication Disabled')}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {!authRequired && (
+                  <button
+                    onClick={() => setShowAuthSetup(true)}
+                    className="p-2 text-yellow-500 hover:text-yellow-600 dark:text-yellow-400 dark:hover:text-yellow-300"
+                    title="Enable Authentication"
+                  >
+                    <IconDuotone icon="exclamation-triangle" size="sm" />
+                  </button>
+                )}
+                {authRequired && (
+                  <button
+                    onClick={handleLogout}
+                    className="p-2 text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-300"
+                    title="Logout"
+                  >
+                    <IconDuotone icon="sign-out-alt" size="sm" />
                 </button>
               </div>
             </div>
@@ -199,6 +225,11 @@ const Layout = () => {
           </div>
         </footer>
       </div>
+      
+      {/* Auth Setup Modal */}
+      {showAuthSetup && (
+        <AuthSetup onClose={() => setShowAuthSetup(false)} />
+      )}
     </div>
   );
 };

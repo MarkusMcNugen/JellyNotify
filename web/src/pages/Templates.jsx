@@ -25,12 +25,13 @@ const Templates = () => {
     queryFn: async () => {
       logger.debug('Templates: Fetching template list');
       try {
-        const result = await apiService.getTemplates();
+        const response = await apiService.getTemplates();
+        const templates = response?.data || [];
         logger.info('Templates: List received', {
-          count: result?.length || 0,
-          templates: result?.map(t => t.name) || []
+          count: templates.length,
+          templates: templates.map(t => t.name)
         });
-        return result;
+        return templates;
       } catch (err) {
         logger.error('Templates: Failed to fetch list', err);
         throw err;
@@ -124,7 +125,7 @@ const Templates = () => {
             </div>
             
             <div className="space-y-1">
-              {templates?.data?.map(template => (
+              {templates?.map(template => (
                 <div
                   key={template.name}
                   onClick={() => loadTemplate(template.name)}
@@ -175,7 +176,7 @@ const Templates = () => {
                       }
                     }}
                     className="btn btn-secondary"
-                    disabled={!templates?.data?.find(t => t.name === selectedTemplate)?.['is_default']}
+                    disabled={!templates?.find(t => t.name === selectedTemplate)?.['is_default']}
                   >
                     <IconDuotone icon="undo-alt" className="mr-2" color="text-yellow-500" />
                     Restore Default

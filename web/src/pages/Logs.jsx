@@ -5,6 +5,7 @@ import { Icon, IconDuotone, IconLight } from '../components/FontAwesomeIcon'
 import { parseLogText, filterLogs, getLogStatistics, formatLogForDisplay, exportLogs, LOG_LEVEL_COLORS } from '../utils/logParser'
 import { FixedSizeList as VirtualList } from 'react-window'
 import logger from '../services/logger'
+import { AlertCircle, AlertTriangle, Info } from 'lucide-react'
 
 const Logs = () => {
   logger.info('[COMPONENT] Logs: Starting component initialization');

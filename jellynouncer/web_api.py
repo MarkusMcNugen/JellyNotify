@@ -161,6 +161,8 @@ class OverviewStats(BaseModel):
     recent_notifications: List[Dict[str, Any]]
     queue_stats: Dict[str, int]
     system_health: Dict[str, Any]
+    historical_stats: Optional[Dict[str, Any]] = None
+    jellyfin_stats: Optional[Dict[str, Any]] = None
 
 
 # ==================== Database Manager ====================
@@ -231,6 +233,53 @@ class WebDatabaseManager:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (user_id) REFERENCES users (id)
                 )
+            """)
+            
+            # Historical stats table for dashboard metrics
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS notification_stats (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    hour_bucket TEXT NOT NULL,  -- YYYY-MM-DD HH:00:00 for hourly aggregation
+                    day_bucket TEXT NOT NULL,   -- YYYY-MM-DD for daily aggregation
+                    
+                    -- Notification counts
+                    notifications_sent INTEGER DEFAULT 0,
+                    notifications_failed INTEGER DEFAULT 0,
+                    
+                    -- By type
+                    new_items INTEGER DEFAULT 0,
+                    upgraded_items INTEGER DEFAULT 0,
+                    deleted_items INTEGER DEFAULT 0,
+                    
+                    -- By content type
+                    movies INTEGER DEFAULT 0,
+                    tv_shows INTEGER DEFAULT 0,
+                    episodes INTEGER DEFAULT 0,
+                    music INTEGER DEFAULT 0,
+                    
+                    -- Special events
+                    library_scans INTEGER DEFAULT 0,
+                    mass_renames_caught INTEGER DEFAULT 0,  -- Bulk rename operations detected and suppressed
+                    
+                    -- Performance metrics
+                    avg_processing_time_ms REAL,
+                    queue_size_max INTEGER DEFAULT 0,
+                    
+                    -- Unique constraint on hour bucket to prevent duplicates
+                    UNIQUE(hour_bucket)
+                )
+            """)
+            
+            # Create indexes for efficient querying
+            await db.execute("""
+                CREATE INDEX IF NOT EXISTS idx_notification_stats_day 
+                ON notification_stats(day_bucket)
+            """)
+            
+            await db.execute("""
+                CREATE INDEX IF NOT EXISTS idx_notification_stats_timestamp 
+                ON notification_stats(timestamp)
             """)
             
             # Audit log table
@@ -393,6 +442,128 @@ class WebDatabaseManager:
                 (user_id, action, details, ip)
             )
             await db.commit()
+    
+    async def update_notification_stats(self, stat_type: str, content_type: Optional[str] = None, count: int = 1):
+        """Update notification statistics for the current hour"""
+        from datetime import datetime, timezone
+        
+        now = datetime.now(timezone.utc)
+        hour_bucket = now.strftime("%Y-%m-%d %H:00:00")
+        day_bucket = now.strftime("%Y-%m-%d")
+        
+        async with aiosqlite.connect(self.db_path) as db:
+            # First, try to insert a new record for this hour
+            try:
+                await db.execute(
+                    """INSERT INTO notification_stats (hour_bucket, day_bucket) 
+                       VALUES (?, ?)""",
+                    (hour_bucket, day_bucket)
+                )
+            except:
+                # Record already exists for this hour, that's fine
+                pass
+            
+            # Update the appropriate counter
+            if stat_type == "sent":
+                await db.execute(
+                    "UPDATE notification_stats SET notifications_sent = notifications_sent + ? WHERE hour_bucket = ?",
+                    (count, hour_bucket)
+                )
+            elif stat_type == "failed":
+                await db.execute(
+                    "UPDATE notification_stats SET notifications_failed = notifications_failed + ? WHERE hour_bucket = ?",
+                    (count, hour_bucket)
+                )
+            elif stat_type == "new":
+                await db.execute(
+                    "UPDATE notification_stats SET new_items = new_items + ? WHERE hour_bucket = ?",
+                    (count, hour_bucket)
+                )
+            elif stat_type == "upgraded":
+                await db.execute(
+                    "UPDATE notification_stats SET upgraded_items = upgraded_items + ? WHERE hour_bucket = ?",
+                    (count, hour_bucket)
+                )
+            elif stat_type == "deleted":
+                await db.execute(
+                    "UPDATE notification_stats SET deleted_items = deleted_items + ? WHERE hour_bucket = ?",
+                    (count, hour_bucket)
+                )
+            elif stat_type == "mass_rename":
+                await db.execute(
+                    "UPDATE notification_stats SET mass_renames_caught = mass_renames_caught + ? WHERE hour_bucket = ?",
+                    (count, hour_bucket)
+                )
+            
+            # Update content type counters if provided
+            if content_type:
+                if content_type.lower() == "movie":
+                    await db.execute(
+                        "UPDATE notification_stats SET movies = movies + ? WHERE hour_bucket = ?",
+                        (count, hour_bucket)
+                    )
+                elif content_type.lower() in ["series", "episode"]:
+                    await db.execute(
+                        "UPDATE notification_stats SET tv_shows = tv_shows + ? WHERE hour_bucket = ?",
+                        (count, hour_bucket)
+                    )
+                elif content_type.lower() == "music":
+                    await db.execute(
+                        "UPDATE notification_stats SET music = music + ? WHERE hour_bucket = ?",
+                        (count, hour_bucket)
+                    )
+            
+            await db.commit()
+    
+    async def get_notification_stats(self, hours: int = 24) -> Dict[str, Any]:
+        """Get notification statistics for the dashboard"""
+        from datetime import datetime, timezone, timedelta
+        
+        now = datetime.now(timezone.utc)
+        start_time = now - timedelta(hours=hours)
+        
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            
+            # Get hourly stats for chart
+            cursor = await db.execute("""
+                SELECT 
+                    hour_bucket,
+                    notifications_sent,
+                    notifications_failed,
+                    new_items,
+                    upgraded_items,
+                    deleted_items
+                FROM notification_stats
+                WHERE timestamp >= ?
+                ORDER BY hour_bucket
+            """, (start_time.isoformat(),))
+            
+            hourly_stats = await cursor.fetchall()
+            
+            # Get totals for the period
+            cursor = await db.execute("""
+                SELECT 
+                    SUM(notifications_sent) as total_sent,
+                    SUM(notifications_failed) as total_failed,
+                    SUM(new_items) as total_new,
+                    SUM(upgraded_items) as total_upgraded,
+                    SUM(deleted_items) as total_deleted,
+                    SUM(movies) as total_movies,
+                    SUM(tv_shows) as total_tv,
+                    SUM(music) as total_music,
+                    SUM(mass_renames_caught) as total_renames_caught
+                FROM notification_stats
+                WHERE timestamp >= ?
+            """, (start_time.isoformat(),))
+            
+            totals = await cursor.fetchone()
+            
+            return {
+                "hourly": [dict(row) for row in hourly_stats],
+                "totals": dict(totals) if totals else {},
+                "period_hours": hours
+            }
 
 
 # ==================== Authentication ====================
@@ -676,6 +847,20 @@ class WebInterfaceService:
                     asyncio.create_task(self.refresh_jellyfin_stats())
         except Exception as e:
             self.logger.warning(f"Could not get Jellyfin stats: {e}")
+        
+        # Get historical statistics from web database
+        try:
+            historical_stats = await self.web_db.get_notification_stats(hours=24)
+            stats["historical_stats"] = historical_stats
+            
+            # Update totals with historical data if available
+            if historical_stats.get("totals"):
+                totals = historical_stats["totals"]
+                stats["total_items"] = totals.get("total_sent", 0)
+                stats["items_today"] = totals.get("total_new", 0) + totals.get("total_upgraded", 0)
+        except Exception as e:
+            self.logger.warning(f"Could not get historical stats: {e}")
+            stats["historical_stats"] = {"hourly": [], "totals": {}, "period_hours": 24}
         
         # Get statistics from main database if webhook service is available
         if self.webhook_service and hasattr(self.webhook_service, 'db') and self.webhook_service.db:
@@ -1407,6 +1592,98 @@ async def update_config(
     except Exception as e:
         logger.error(f"Error updating config {config_update.section}.{config_update.key}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@app.post("/api/test/jellyfin")
+async def test_jellyfin_connection(
+    config: Dict[str, Any],
+    current_user: Optional[Dict] = Depends(check_auth_required)
+):
+    """Test Jellyfin server connection"""
+    try:
+        # Import Jellyfin API client
+        from jellynouncer.jellyfin_api import JellyfinAPI
+        
+        # Create temporary client with provided config
+        jellyfin = JellyfinAPI(
+            server_url=config.get("server_url"),
+            api_key=config.get("api_key"),
+            user_id=config.get("user_id")
+        )
+        
+        # Test connection by getting server info
+        server_info = await jellyfin.get_server_info()
+        
+        return {
+            "success": True,
+            "message": "Connection successful",
+            "server_name": server_info.get("ServerName", "Unknown"),
+            "version": server_info.get("Version", "Unknown")
+        }
+    except Exception as e:
+        logger.error(f"Jellyfin test failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Connection failed: {str(e)}"
+        )
+
+
+@app.post("/api/test/discord/{webhook_name}")
+async def test_discord_webhook(
+    webhook_name: str,
+    config: Dict[str, Any],
+    current_user: Optional[Dict] = Depends(check_auth_required)
+):
+    """Test Discord webhook"""
+    try:
+        import aiohttp
+        
+        webhook_url = config.get("url")
+        if not webhook_url:
+            raise ValueError("Webhook URL is required")
+        
+        # Send test message
+        async with aiohttp.ClientSession() as session:
+            test_message = {
+                "content": f"🧪 Test message from Jellynouncer",
+                "embeds": [{
+                    "title": "Webhook Test",
+                    "description": f"This is a test message for the **{webhook_name}** webhook.",
+                    "color": 0x9b59b6,  # Purple
+                    "fields": [
+                        {
+                            "name": "Status",
+                            "value": "✅ Connection successful",
+                            "inline": True
+                        },
+                        {
+                            "name": "Webhook Name",
+                            "value": webhook_name,
+                            "inline": True
+                        }
+                    ],
+                    "footer": {
+                        "text": "Jellynouncer Web Interface"
+                    }
+                }]
+            }
+            
+            async with session.post(webhook_url, json=test_message) as response:
+                if response.status == 204:
+                    return {
+                        "success": True,
+                        "message": "Test message sent successfully"
+                    }
+                else:
+                    error_text = await response.text()
+                    raise ValueError(f"Discord returned {response.status}: {error_text}")
+                    
+    except Exception as e:
+        logger.error(f"Discord webhook test failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Webhook test failed: {str(e)}"
+        )
 
 
 @app.get("/api/templates")

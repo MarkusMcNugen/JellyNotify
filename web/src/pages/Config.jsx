@@ -18,6 +18,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { apiService } from '../services/api';
 import { apiClient } from '../utils/apiClient';
+import WebhookTokenDisplay from '../components/WebhookTokenDisplay';
 import logger from '../services/logger';
 
 const Config = () => {
@@ -33,6 +34,7 @@ const Config = () => {
   const [showAdvancedWarning, setShowAdvancedWarning] = useState(false);
   const [sslFile, setSslFile] = useState(null);
   const [sslKeyFile, setSslKeyFile] = useState(null);
+  const [showWebhookToken, setShowWebhookToken] = useState(false);
   
   const [config, setConfig] = useState({
     jellyfin: {
@@ -187,6 +189,23 @@ const Config = () => {
       setError(null);
       setSuccess(null);
       
+      // Handle auth settings separately if they've changed
+      if (config.web_interface) {
+        const authEnabled = config.web_interface.auth_enabled || false;
+        const requireWebhookAuth = config.web_interface.require_webhook_auth || false;
+        
+        logger.debug('Config: Updating auth settings', { authEnabled, requireWebhookAuth });
+        
+        // Update auth settings through the proper endpoint
+        await apiClient.put('/api/auth/settings', null, {
+          params: {
+            auth_enabled: authEnabled,
+            require_webhook_auth: requireWebhookAuth
+          }
+        });
+      }
+      
+      // Save the rest of the config
       await apiClient.put('/api/config', config);
       setSuccess('Configuration saved successfully');
       
@@ -910,9 +929,38 @@ const Config = () => {
                       className="rounded border-gray-300 text-purple-600 shadow-sm focus:border-purple-500 focus:ring-purple-500"
                     />
                     <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Require Authentication
+                      Require Web Interface Authentication
                     </span>
                   </label>
+                </div>
+                <div>
+                  <label className="inline-flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={config.web_interface.require_webhook_auth || false}
+                      onChange={(e) => handleInputChange('web_interface', 'require_webhook_auth', e.target.checked)}
+                      className="rounded border-gray-300 text-purple-600 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                      disabled={!config.web_interface.auth_enabled}
+                    />
+                    <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Require Webhook Authentication
+                    </span>
+                  </label>
+                  {config.web_interface.require_webhook_auth && (
+                    <div className="mt-2 space-y-2">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Jellyfin webhooks must include a Bearer token with the same credentials
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setShowWebhookToken(true)}
+                        className="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-xs font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                      >
+                        <KeyIcon className="h-3 w-3 mr-1.5" />
+                        View Webhook Token
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -1196,6 +1244,11 @@ const Config = () => {
           )}
         </div>
       </div>
+      
+      {/* Webhook Token Modal */}
+      {showWebhookToken && (
+        <WebhookTokenDisplay onClose={() => setShowWebhookToken(false)} />
+      )}
     </div>
   );
 };

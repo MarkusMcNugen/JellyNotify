@@ -306,6 +306,67 @@ async def receive_webhook(request: Request):
             detail="Service not ready - still initializing"
         )
 
+    # Check if webhook authentication is required
+    try:
+        # Import WebDatabaseManager from web_api
+        from jellynouncer.web_database import WebDatabaseManager
+        web_db = WebDatabaseManager()
+        await web_db.initialize()
+        settings = await web_db.get_security_settings()
+        
+        if settings.get("require_webhook_auth", False):
+            # Check for authorization header
+            auth_header = request.headers.get("authorization")
+            if not auth_header or not auth_header.startswith("Bearer "):
+                logger.warning("Webhook authentication required but no valid token provided")
+                raise HTTPException(
+                    status_code=401,
+                    detail="Authentication required for webhook endpoint"
+                )
+            
+            # Validate the token (same tokens as web interface)
+            token = auth_header.replace("Bearer ", "")
+            try:
+                import jwt
+                from datetime import datetime
+                
+                # Get JWT secret from environment or config
+                jwt_secret = os.getenv("JWT_SECRET_KEY", "your-secret-key-here")
+                payload = jwt.decode(token, jwt_secret, algorithms=["HS256"])
+                
+                # Accept both access tokens and refresh tokens for webhook auth
+                token_type = payload.get("type")
+                if token_type not in ["access", "refresh"]:
+                    logger.warning(f"Invalid token type for webhook access: {token_type}")
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Invalid token type for webhook access"
+                    )
+                
+                # Log successful authentication
+                username = payload.get("username", "unknown")
+                logger.info(f"Webhook authenticated successfully for user: {username}")
+                
+            except jwt.ExpiredSignatureError:
+                logger.warning("Webhook token has expired")
+                raise HTTPException(
+                    status_code=401,
+                    detail="Token has expired"
+                )
+            except jwt.InvalidTokenError as e:
+                logger.warning(f"Invalid webhook token: {str(e)}")
+                raise HTTPException(
+                    status_code=401,
+                    detail="Invalid authentication token"
+                )
+    except ImportError:
+        # Web database not available, skip auth check
+        logger.debug("Web database not available, skipping webhook auth check")
+    except Exception as e:
+        logger.error(f"Error checking webhook auth: {str(e)}")
+        # Don't block webhooks if auth check fails
+        pass
+
     try:
         # Get raw body once - we'll use it for both debug logging and parsing
         raw_body = await request.body()
