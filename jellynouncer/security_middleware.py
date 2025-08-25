@@ -100,12 +100,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.exempt_paths = exempt_paths or ["/webhook", "/health", "/api/health"]
         self.requests: Dict[str, deque] = defaultdict(deque)
         
-        # Endpoint-specific limits
+        # Endpoint-specific limits (per minute)
         self.endpoint_limits = {
-            "/api/auth/login": 5,  # 5 attempts per minute
-            "/api/auth/register": 3,  # 3 registrations per minute
-            "/api/auth/refresh": 10,  # 10 refreshes per minute
-            "/api/config": 20,  # 20 config updates per minute
+            "/api/auth/login": 10,  # 10 login attempts per minute (still restrictive for security)
+            "/api/auth/register": 5,  # 5 registrations per minute
+            "/api/auth/refresh": 30,  # 30 refreshes per minute
+            # Removed /api/config limit - it's now exempt and uses the general limit
         }
         
         # Start cleanup task
