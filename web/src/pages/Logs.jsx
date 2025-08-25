@@ -306,14 +306,14 @@ const Logs = () => {
             
             {stats.errorCount > 0 && (
               <div className="flex items-center gap-2 text-red-500">
-                <AlertCircle size={16} />
+                <Icon icon="exclamation-circle" size="sm" />
                 <span>{stats.errorCount} errors</span>
               </div>
             )}
             
             {stats.warningCount > 0 && (
               <div className="flex items-center gap-2 text-yellow-500">
-                <AlertTriangle size={16} />
+                <Icon icon="exclamation-triangle" size="sm" />
                 <span>{stats.warningCount} warnings</span>
               </div>
             )}
