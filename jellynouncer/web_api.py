@@ -460,10 +460,8 @@ async def get_current_user_optional(credentials: Optional[HTTPAuthorizationCrede
 async def check_auth_required(user: Optional[Dict[str, Any]] = Depends(get_current_user_optional)) -> Optional[Dict[str, Any]]:
     """Check if authentication is required and validate user"""
     try:
-        # Check if auth is enabled
-        web_db = WebDatabaseManager()
-        await web_db.initialize()  # Ensure DB is initialized
-        settings = await web_db.get_security_settings()
+        # Use the global web_service's database manager instead of creating a new one
+        settings = await web_service.web_db.get_security_settings()
         
         logger.debug(f"Auth check - settings: {settings}, user present: {user is not None}")
         
@@ -478,14 +476,16 @@ async def check_auth_required(user: Optional[Dict[str, Any]] = Depends(get_curre
             return user
         
         # Auth not required, return None or user if provided
+        logger.debug(f"Auth not required, returning user: {user is not None}")
         return user
     except HTTPException:
         # Re-raise HTTP exceptions
         raise
     except Exception as e:
         logger.error(f"Error checking auth requirements: {e}", exc_info=True)
-        # On error, default to no auth required
-        return user
+        # On error, default to no auth required - return None to allow access
+        logger.warning("Auth check failed, defaulting to no auth required")
+        return None
 
 
 # ==================== Service Manager ====================

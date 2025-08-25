@@ -63,3 +63,4 @@ node_modules/
 /web_interface.db
 /web/test-detailed.js
 /web/test-route-debug.js
+/web/test-all-pages.js
