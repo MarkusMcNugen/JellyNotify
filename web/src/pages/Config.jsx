@@ -590,20 +590,22 @@ const Config = () => {
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
                   Watch for Changes
                 </h3>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {Object.entries(config.notifications.watch_changes).map(([key, value]) => (
-                    <label key={key} className="inline-flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={value}
-                        onChange={(e) => handleInputChange('notifications', 'watch_changes', e.target.checked, key)}
-                        className="rounded border-gray-300 text-purple-600 shadow-sm focus:border-purple-500 focus:ring-purple-500"
-                      />
-                      <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                        {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                      </span>
-                      <Tooltip text={configDescriptions.notifications.watch_changes[key]} />
-                    </label>
+                    <div key={key} className="flex items-center">
+                      <label className="inline-flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={value}
+                          onChange={(e) => handleInputChange('notifications', 'watch_changes', e.target.checked, key)}
+                          className="rounded border-gray-300 text-purple-600 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                        />
+                        <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                          {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        </span>
+                        <Tooltip text={configDescriptions.notifications.watch_changes[key]} />
+                      </label>
+                    </div>
                   ))}
                 </div>
               </div>

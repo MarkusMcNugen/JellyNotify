@@ -1341,7 +1341,7 @@ class WebhookService:
                             if db_items:
                                 conv_time_ms = conversion_time * 1000
                                 conv_per_item_ms = conv_time_ms / len(db_items) if db_items else 0
-                                self.logger.info(
+                                self.logger.debug(
                                     f"DatabaseItem conversion for {len(db_items)} items: "
                                     f"Total: {conv_time_ms:.1f}ms, "
                                     f"Avg: {conv_per_item_ms:.2f}ms/item"
@@ -1376,7 +1376,7 @@ class WebhookService:
                                     total_hash_time_ms = total_hash_time * 1000
                                     hashes_per_second = len(hash_generation_times) / total_hash_time if total_hash_time > 0 else 0
                                     
-                                    self.logger.info(
+                                    self.logger.debug(
                                         f"Hash generation stats for {len(db_items)} items: "
                                         f"Total: {total_hash_time_ms:.1f}ms, "
                                         f"Avg: {avg_hash_time_ms:.2f}ms/item, "
@@ -1441,7 +1441,7 @@ class WebhookService:
                                         conversion_percent = (conversion_time / batch_time) * 100 if batch_time > 0 else 0
                                         other_percent = 100 - hash_percent - db_percent - conversion_percent
                                         
-                                        self.logger.info(
+                                        self.logger.debug(
                                             f"Batch {batch_num} performance breakdown: "
                                             f"Conversion: {conversion_percent:.1f}%, "
                                             f"Hashing: {hash_percent:.1f}%, "

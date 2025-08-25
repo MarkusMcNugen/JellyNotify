@@ -43,7 +43,7 @@ const Layout = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
       {/* Mobile sidebar */}
       <div className={`fixed inset-0 z-50 lg:hidden ${sidebarOpen ? '' : 'hidden'}`}>
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
@@ -218,8 +218,8 @@ const Layout = () => {
         </header>
 
         {/* Page content */}
-        <main className="flex-1">
-          <div className="py-6">
+        <main className="flex-1 flex flex-col">
+          <div className="flex-1 py-6">
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
               <Outlet />
             </div>
