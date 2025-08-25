@@ -17,6 +17,7 @@ const Templates = () => {
   const [isModified, setIsModified] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [newTemplateName, setNewTemplateName] = useState('')
+  const [activeTab, setActiveTab] = useState('basic')
   const [theme, setTheme] = useState(() => {
     // Check if dark mode is enabled
     return document.documentElement.classList.contains('dark') ? 'dark' : 'light'
@@ -227,20 +228,20 @@ const Templates = () => {
               </div>
               
               {/* CodeMirror 6 Jinja2 Editor */}
-              <div className="flex-1 relative">
+              <div className="flex-1 relative overflow-hidden">
                 <Jinja2Editor
                   value={editorContent}
                   onChange={handleEditorChange}
                   onSave={handleSave}
                   theme={theme}
-                  height="100%"
+                  height="calc(100vh - 200px)"
                   readOnly={false}
                   placeholder="Enter your Jinja2 template here..."
                 />
                 
                 {/* Jinja2 Cheatsheet Overlay */}
                 {showCheatsheet && (
-                  <div className="absolute top-4 right-4 w-96 max-h-[80vh] card overflow-auto z-50">
+                  <div className="absolute top-4 right-4 w-[600px] max-h-[90vh] card overflow-auto z-50">
                     <div className="flex items-center justify-between mb-4">
                       <h4 className="font-semibold text-lg">Jinja2 Quick Reference</h4>
                       <button 
@@ -313,20 +314,117 @@ const Templates = () => {
                         </div>
                       </div>
                       
-                      {/* Available Variables */}
+                      {/* Available Variables with Tabs */}
                       <div>
                         <h5 className="text-sm font-semibold text-jellyfin-purple mb-2">Available Variables</h5>
-                        <div className="text-xs space-y-1 text-dark-text-secondary">
-                          <div><span className="text-blue-400">item.name</span> - Media title</div>
-                          <div><span className="text-blue-400">item.overview</span> - Description</div>
-                          <div><span className="text-blue-400">item.year</span> - Release year</div>
-                          <div><span className="text-blue-400">item.genres</span> - List of genres</div>
-                          <div><span className="text-blue-400">item.video_height</span> - Resolution (e.g., 1080)</div>
-                          <div><span className="text-blue-400">item.video_codec</span> - Codec (e.g., H264)</div>
-                          <div><span className="text-blue-400">item.audio_codec</span> - Audio codec</div>
-                          <div><span className="text-blue-400">item.media_type</span> - Movie/Series</div>
-                          <div><span className="text-blue-400">item.season_number</span> - For TV episodes</div>
-                          <div><span className="text-blue-400">item.episode_number</span> - For TV episodes</div>
+                        
+                        {/* Tab Navigation */}
+                        <div className="flex flex-wrap gap-1 mb-2 border-b border-dark-border">
+                          {['basic', 'video', 'audio', 'tv', 'metadata', 'server'].map(tab => (
+                            <button
+                              key={tab}
+                              onClick={() => setActiveTab(tab)}
+                              className={`px-3 py-1 text-xs font-medium capitalize transition-colors ${
+                                activeTab === tab 
+                                  ? 'text-jellyfin-purple border-b-2 border-jellyfin-purple' 
+                                  : 'text-dark-text-muted hover:text-dark-text-primary'
+                              }`}
+                            >
+                              {tab}
+                            </button>
+                          ))}
+                        </div>
+                        
+                        {/* Tab Content */}
+                        <div className="text-xs space-y-1 text-dark-text-secondary max-h-[300px] overflow-y-auto">
+                          {activeTab === 'basic' && (
+                            <>
+                              <div><span className="text-blue-400">item.item_id</span> - Unique Jellyfin ID</div>
+                              <div><span className="text-blue-400">item.name</span> - Media title</div>
+                              <div><span className="text-blue-400">item.item_type</span> - Movie/Episode/Series/Audio</div>
+                              <div><span className="text-blue-400">item.year</span> - Release year</div>
+                              <div><span className="text-blue-400">item.overview</span> - Description/plot</div>
+                              <div><span className="text-blue-400">item.tagline</span> - Marketing tagline</div>
+                              <div><span className="text-blue-400">item.official_rating</span> - MPAA/TV rating</div>
+                              <div><span className="text-blue-400">item.genres</span> - List of genres</div>
+                              <div><span className="text-blue-400">item.studios</span> - Production studios</div>
+                              <div><span className="text-blue-400">item.tags</span> - User tags</div>
+                              <div><span className="text-blue-400">item.runtime_formatted</span> - Duration (e.g., "2h 15m")</div>
+                              <div><span className="text-blue-400">item.premiere_date</span> - Original release date</div>
+                            </>
+                          )}
+                          
+                          {activeTab === 'video' && (
+                            <>
+                              <div><span className="text-blue-400">item.video_height</span> - Height in pixels (1080, 2160)</div>
+                              <div><span className="text-blue-400">item.video_width</span> - Width in pixels (1920, 3840)</div>
+                              <div><span className="text-blue-400">item.video_codec</span> - Codec (h264, hevc, av1)</div>
+                              <div><span className="text-blue-400">item.video_profile</span> - Profile (High, Main10)</div>
+                              <div><span className="text-blue-400">item.video_range</span> - SDR/HDR10/DolbyVision</div>
+                              <div><span className="text-blue-400">item.video_framerate</span> - FPS (24, 60)</div>
+                              <div><span className="text-blue-400">item.aspect_ratio</span> - Aspect ratio (16:9)</div>
+                              <div><span className="text-blue-400">item.video_bitrate</span> - Bitrate in bps</div>
+                              <div><span className="text-blue-400">item.video_bitdepth</span> - Bit depth (8, 10)</div>
+                              <div><span className="text-blue-400">item.video_colorspace</span> - Color space</div>
+                              <div><span className="text-blue-400">item.video_interlaced</span> - True if interlaced</div>
+                              <div><span className="text-blue-400">item.video_language</span> - Language code</div>
+                            </>
+                          )}
+                          
+                          {activeTab === 'audio' && (
+                            <>
+                              <div><span className="text-blue-400">item.audio_codec</span> - Codec (aac, ac3, dts)</div>
+                              <div><span className="text-blue-400">item.audio_channels</span> - Channels (2, 6, 8)</div>
+                              <div><span className="text-blue-400">item.audio_language</span> - Language code</div>
+                              <div><span className="text-blue-400">item.audio_bitrate</span> - Bitrate in bps</div>
+                              <div><span className="text-blue-400">item.audio_samplerate</span> - Sample rate (48000)</div>
+                              <div><span className="text-blue-400">item.audio_title</span> - Track title</div>
+                              <div><span className="text-blue-400">item.audio_default</span> - Default track</div>
+                              <div><span className="text-blue-400">item.subtitle_language</span> - Subtitle language</div>
+                              <div><span className="text-blue-400">item.subtitle_codec</span> - Subtitle format</div>
+                              <div><span className="text-blue-400">item.subtitle_forced</span> - Forced subtitle</div>
+                            </>
+                          )}
+                          
+                          {activeTab === 'tv' && (
+                            <>
+                              <div><span className="text-blue-400">item.series_name</span> - TV series name</div>
+                              <div><span className="text-blue-400">item.series_id</span> - Series ID</div>
+                              <div><span className="text-blue-400">item.season_number</span> - Season number</div>
+                              <div><span className="text-blue-400">item.season_id</span> - Season ID</div>
+                              <div><span className="text-blue-400">item.episode_number</span> - Episode number</div>
+                              <div><span className="text-blue-400">item.season_number_padded</span> - Padded (01, 02)</div>
+                              <div><span className="text-blue-400">item.episode_number_padded</span> - Padded (01, 02)</div>
+                              <div><span className="text-blue-400">item.air_time</span> - Air time</div>
+                              <div><span className="text-blue-400">item.series_premiere_date</span> - Series premiere</div>
+                            </>
+                          )}
+                          
+                          {activeTab === 'metadata' && (
+                            <>
+                              <div><span className="text-blue-400">item.imdb_id</span> - IMDb ID (tt1234567)</div>
+                              <div><span className="text-blue-400">item.tmdb_id</span> - TMDB ID</div>
+                              <div><span className="text-blue-400">item.tvdb_id</span> - TVDB ID</div>
+                              <div><span className="text-blue-400">item.tvdb_slug</span> - TVDB URL slug</div>
+                              <div><span className="text-blue-400">item.file_path</span> - File system path</div>
+                              <div><span className="text-blue-400">item.file_size</span> - File size in bytes</div>
+                              <div><span className="text-blue-400">item.library_name</span> - Jellyfin library</div>
+                              <div><span className="text-blue-400">item.date_created</span> - Added to Jellyfin</div>
+                              <div><span className="text-blue-400">item.date_modified</span> - Last modified</div>
+                            </>
+                          )}
+                          
+                          {activeTab === 'server' && (
+                            <>
+                              <div><span className="text-blue-400">item.server_id</span> - Server ID</div>
+                              <div><span className="text-blue-400">item.server_name</span> - Server name</div>
+                              <div><span className="text-blue-400">item.server_version</span> - Server version</div>
+                              <div><span className="text-blue-400">item.server_url</span> - Server URL</div>
+                              <div><span className="text-blue-400">item.notification_type</span> - Event type</div>
+                              <div><span className="text-blue-400">item.timestamp</span> - Local timestamp</div>
+                              <div><span className="text-blue-400">item.utc_timestamp</span> - UTC timestamp</div>
+                            </>
+                          )}
                         </div>
                       </div>
                       

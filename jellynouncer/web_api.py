@@ -210,19 +210,6 @@ class ClientLogBatch(BaseModel):
     timestamp: str
 
 
-class OverviewStats(BaseModel):
-    """Model for overview statistics"""
-    total_items: int
-    items_today: int
-    items_week: int
-    discord_webhooks: Dict[str, Dict[str, Any]]
-    recent_notifications: List[Dict[str, Any]]
-    queue_stats: Dict[str, int]
-    system_health: Dict[str, Any]
-    historical_stats: Optional[Dict[str, Any]] = None
-    jellyfin_stats: Optional[Dict[str, Any]] = None
-
-
 # ==================== Database Manager ====================
 
 class WebDatabaseManager:

@@ -114,7 +114,7 @@ const Logs = () => {
     return (
       <div 
         style={style} 
-        className={`flex items-start gap-2 px-4 py-1 hover:bg-dark-elevated/50 transition-colors ${formatted.rowClassName} overflow-hidden`}
+        className={`flex items-start gap-2 px-4 py-1 hover:bg-dark-elevated/50 transition-colors ${formatted.rowClassName}`}
       >
         {/* Timestamp */}
         <span className="text-xs text-dark-text-muted font-mono min-w-[180px] flex-shrink-0">
@@ -138,9 +138,9 @@ const Logs = () => {
           [{log.component}]
         </span>
         
-        {/* Message - with proper overflow handling */}
+        {/* Message - preserving leading spaces and proper overflow handling */}
         <span 
-          className="flex-1 text-sm font-mono text-dark-text-primary break-all whitespace-pre-wrap overflow-wrap-anywhere"
+          className="flex-1 text-sm font-mono text-dark-text-primary break-all whitespace-pre overflow-wrap-anywhere"
           style={{ wordBreak: 'break-word' }}
           dangerouslySetInnerHTML={{ 
             __html: search ? log.message.replace(

@@ -412,9 +412,8 @@ const Config = () => {
                   key={tab.id}
                   onClick={() => {
                     setActiveTab(tab.id);
-                    if (tab.advanced && !showAdvancedWarning) {
-                      setShowAdvancedWarning(true);
-                    }
+                    // Show warning only for advanced tabs
+                    setShowAdvancedWarning(tab.advanced || false);
                   }}
                   className={`
                     whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm inline-flex items-center
