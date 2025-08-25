@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Icon, IconDuotone } from './FontAwesomeIcon';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../stores/authStore';
@@ -114,7 +114,7 @@ const WebhookTokenDisplay = ({ onClose }) => {
                 <ul className="list-disc list-inside mt-1 space-y-1">
                   <li>Keep your token secure and never share it publicly</li>
                   <li>The token expires after 30 minutes and will need to be refreshed</li>
-                  <li>If you log out, you'll need to generate a new token</li>
+                  <li>If you log out, you&apos;ll need to generate a new token</li>
                 </ul>
               </div>
             </div>

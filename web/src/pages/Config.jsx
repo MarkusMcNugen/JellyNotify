@@ -19,6 +19,9 @@ import {
 import { apiService } from '../services/api';
 import { apiClient } from '../utils/apiClient';
 import WebhookTokenDisplay from '../components/WebhookTokenDisplay';
+import Tooltip from '../components/Tooltip';
+import LabelWithTooltip from '../components/LabelWithTooltip';
+import { configDescriptions } from '../utils/configDescriptions';
 import logger from '../services/logger';
 
 const Config = () => {
@@ -435,9 +438,11 @@ const Config = () => {
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Server URL
-                  </label>
+                  <LabelWithTooltip 
+                    label="Server URL" 
+                    tooltip={configDescriptions.jellyfin.server_url}
+                    className="block"
+                  />
                   <input
                     type="text"
                     value={config.jellyfin.server_url || ''}
@@ -447,9 +452,11 @@ const Config = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    API Key
-                  </label>
+                  <LabelWithTooltip 
+                    label="API Key" 
+                    tooltip={configDescriptions.jellyfin.api_key}
+                    className="block"
+                  />
                   <input
                     type="password"
                     value={config.jellyfin.api_key || ''}
@@ -458,9 +465,11 @@ const Config = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    User ID
-                  </label>
+                  <LabelWithTooltip 
+                    label="User ID" 
+                    tooltip={configDescriptions.jellyfin.user_id}
+                    className="block"
+                  />
                   <input
                     type="text"
                     value={config.jellyfin.user_id || ''}
@@ -490,9 +499,11 @@ const Config = () => {
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Webhook URL
-                      </label>
+                      <LabelWithTooltip 
+                        label="Webhook URL" 
+                        tooltip={configDescriptions.discord.webhooks[key]?.url || configDescriptions.discord.webhooks.default.url}
+                        className="block"
+                      />
                       <input
                         type="text"
                         value={webhook.url || ''}
@@ -510,6 +521,7 @@ const Config = () => {
                           className="rounded border-gray-300 text-purple-600 shadow-sm focus:border-purple-500 focus:ring-purple-500"
                         />
                         <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Enabled</span>
+                        <Tooltip text={configDescriptions.discord.webhooks[key]?.enabled || configDescriptions.discord.webhooks.default.enabled} />
                       </label>
                       <button
                         onClick={() => testConnection(key)}
@@ -586,6 +598,7 @@ const Config = () => {
                       <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
                         {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                       </span>
+                      <Tooltip text={configDescriptions.notifications.watch_changes[key]} />
                     </label>
                   ))}
                 </div>
@@ -598,9 +611,11 @@ const Config = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {Object.entries(config.notifications.colors).map(([key, value]) => (
                     <div key={key}>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                      </label>
+                      <LabelWithTooltip 
+                        label={key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        tooltip={configDescriptions.notifications.colors[key]}
+                        className="block"
+                      />
                       <input
                         type="number"
                         value={value}
@@ -625,6 +640,7 @@ const Config = () => {
                       className="rounded border-gray-300 text-purple-600 shadow-sm focus:border-purple-500 focus:ring-purple-500"
                     />
                     <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Filter Renames</span>
+                    <Tooltip text={configDescriptions.notifications.filter_renames} />
                   </label>
                   <label className="inline-flex items-center">
                     <input
@@ -634,6 +650,7 @@ const Config = () => {
                       className="rounded border-gray-300 text-purple-600 shadow-sm focus:border-purple-500 focus:ring-purple-500"
                     />
                     <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Filter Deletes</span>
+                    <Tooltip text={configDescriptions.notifications.filter_deletes} />
                   </label>
                 </div>
               </div>
@@ -654,6 +671,7 @@ const Config = () => {
                   <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                     Enable Metadata Services
                   </span>
+                  <Tooltip text={configDescriptions.metadata_services.enabled} />
                 </label>
               </div>
 
@@ -670,12 +688,15 @@ const Config = () => {
                         className="rounded border-gray-300 text-purple-600 shadow-sm focus:border-purple-500 focus:ring-purple-500"
                       />
                       <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Enabled</span>
+                      <Tooltip text={configDescriptions.metadata_services.omdb.enabled} />
                     </label>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      API Key
-                    </label>
+                    <LabelWithTooltip 
+                      label="API Key" 
+                      tooltip={configDescriptions.metadata_services.omdb.api_key}
+                      className="block"
+                    />
                     <input
                       type="password"
                       value={config.metadata_services.omdb.api_key || ''}
@@ -762,9 +783,11 @@ const Config = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Host
-                  </label>
+                  <LabelWithTooltip 
+                    label="Host" 
+                    tooltip={configDescriptions.server.host}
+                    className="block"
+                  />
                   <input
                     type="text"
                     value={config.server.host}
@@ -773,9 +796,11 @@ const Config = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Port
-                  </label>
+                  <LabelWithTooltip 
+                    label="Port" 
+                    tooltip={configDescriptions.server.port}
+                    className="block"
+                  />
                   <input
                     type="number"
                     value={config.server.port}
@@ -784,9 +809,11 @@ const Config = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Log Level
-                  </label>
+                  <LabelWithTooltip 
+                    label="Log Level" 
+                    tooltip={configDescriptions.server.log_level}
+                    className="block"
+                  />
                   <select
                     value={config.server.log_level}
                     onChange={(e) => handleInputChange('server', 'log_level', e.target.value)}
@@ -918,6 +945,7 @@ const Config = () => {
                     <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                       Enable Web Interface
                     </span>
+                    <Tooltip text={configDescriptions.web_interface.enabled} />
                   </label>
                 </div>
                 <div>
@@ -931,6 +959,7 @@ const Config = () => {
                     <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                       Require Web Interface Authentication
                     </span>
+                    <Tooltip text={configDescriptions.web_interface.auth_enabled} />
                   </label>
                 </div>
                 <div>
@@ -945,6 +974,7 @@ const Config = () => {
                     <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                       Require Webhook Authentication
                     </span>
+                    <Tooltip text={configDescriptions.web_interface.require_webhook_auth} />
                   </label>
                   {config.web_interface.require_webhook_auth && (
                     <div className="mt-2 space-y-2">
@@ -1031,9 +1061,11 @@ const Config = () => {
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Database Path
-                  </label>
+                  <LabelWithTooltip 
+                    label="Database Path" 
+                    tooltip={configDescriptions.database.path}
+                    className="block"
+                  />
                   <input
                     type="text"
                     value={config.database.path}
@@ -1042,9 +1074,11 @@ const Config = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Vacuum Interval (hours)
-                  </label>
+                  <LabelWithTooltip 
+                    label="Vacuum Interval (hours)" 
+                    tooltip={configDescriptions.database.vacuum_interval_hours}
+                    className="block"
+                  />
                   <input
                     type="number"
                     value={config.database.vacuum_interval_hours}
@@ -1066,10 +1100,8 @@ const Config = () => {
                   <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
                     Enable WAL Mode (Write-Ahead Logging)
                   </span>
+                  <Tooltip text={configDescriptions.database.wal_mode} />
                 </label>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  WAL mode provides better concurrent access performance
-                </p>
               </div>
             </div>
           )}
@@ -1139,6 +1171,7 @@ const Config = () => {
                   <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                     Enable SSL/HTTPS
                   </span>
+                  <Tooltip text={configDescriptions.ssl.enabled} />
                 </label>
               </div>
 
@@ -1146,9 +1179,11 @@ const Config = () => {
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        SSL Port
-                      </label>
+                      <LabelWithTooltip 
+                        label="SSL Port" 
+                        tooltip={configDescriptions.ssl.port}
+                        className="block"
+                      />
                       <input
                         type="number"
                         value={config.web_interface.ssl_port}
@@ -1160,9 +1195,11 @@ const Config = () => {
 
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        SSL Certificate
-                      </label>
+                      <LabelWithTooltip 
+                        label="SSL Certificate" 
+                        tooltip={configDescriptions.ssl.cert_path}
+                        className="block mb-2"
+                      />
                       <div className="flex items-center space-x-4">
                         <input
                           type="file"

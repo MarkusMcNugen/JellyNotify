@@ -1500,6 +1500,62 @@ async def update_auth_settings(
     return {"message": "Security settings updated", "auth_enabled": auth_enabled, "require_webhook_auth": require_webhook_auth}
 
 
+@app.put("/api/auth/password")
+async def change_password(
+    current_password: str,
+    new_password: str,
+    current_user: Dict = Depends(get_current_user)
+):
+    """Change the current user's password"""
+    try:
+        # Verify current password
+        async with aiosqlite.connect(WEB_DB_PATH) as db:
+            cursor = await db.execute(
+                "SELECT password_hash FROM users WHERE id = ?",
+                (current_user["user_id"],)
+            )
+            row = await cursor.fetchone()
+            
+            if not row:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found"
+                )
+            
+            if not verify_password(current_password, row[0]):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Current password is incorrect"
+                )
+            
+            # Update password
+            new_hash = hash_password(new_password)
+            await db.execute(
+                "UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (new_hash, current_user["user_id"])
+            )
+            await db.commit()
+        
+        # Log the password change
+        await web_service.web_db.log_audit(
+            current_user["user_id"],
+            "password_changed",
+            "Password changed successfully",
+            None
+        )
+        
+        return {"message": "Password changed successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error changing password: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to change password"
+        )
+
+
 @app.post("/api/auth/register", status_code=status.HTTP_201_CREATED)
 async def register(user_create: UserCreate, current_user: Optional[Dict] = Depends(check_auth_required)):
     """Register a new user (requires auth if enabled)"""

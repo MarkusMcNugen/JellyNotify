@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Icon, IconDuotone } from './FontAwesomeIcon';
 import { useAuthStore } from '../stores/authStore';
 import toast from 'react-hot-toast';
@@ -132,7 +132,7 @@ const AuthSetup = ({ onClose }) => {
                       <li>Create your admin account</li>
                       <li>Verify account details</li>
                       <li>Enable authentication</li>
-                      <li>You'll be logged out and must sign in</li>
+                      <li>You&apos;ll be logged out and must sign in</li>
                     </ol>
                   </div>
                 </div>
@@ -143,7 +143,7 @@ const AuthSetup = ({ onClose }) => {
                   <IconDuotone icon="exclamation-triangle" className="text-amber-600 dark:text-amber-400 mt-0.5" />
                   <div className="ml-3 text-sm text-gray-700 dark:text-gray-300">
                     <p className="font-semibold">Important:</p>
-                    <p>Make sure to remember your credentials. You'll need them to access the interface once authentication is enabled.</p>
+                    <p>Make sure to remember your credentials. You&apos;ll need them to access the interface once authentication is enabled.</p>
                   </div>
                 </div>
               </div>
@@ -291,7 +291,7 @@ const AuthSetup = ({ onClose }) => {
                   <IconDuotone icon="exclamation-triangle" className="text-amber-600 dark:text-amber-400 mt-0.5" />
                   <div className="ml-3 text-sm text-gray-700 dark:text-gray-300">
                     <p className="font-semibold">Next Step:</p>
-                    <p>When you click "Enable Authentication", you will be immediately logged out and must sign in with your new credentials.</p>
+                    <p>When you click &quot;Enable Authentication&quot;, you will be immediately logged out and must sign in with your new credentials.</p>
                   </div>
                 </div>
               </div>

@@ -431,7 +431,77 @@ Authentication is **disabled by default**. To enable:
 - Bcrypt hashing with unique salts
 - Configurable work factor for future-proofing
 - No password storage in plain text
-- Password reset functionality
+- Password reset functionality via user interface
+- Emergency recovery options (see below)
+
+#### **Emergency Password Recovery**
+
+If you lose access to your admin account, you have several recovery options:
+
+**Option 1: Using JWT_SECRET_KEY (Recommended)**
+
+1. Set the `JWT_SECRET_KEY` environment variable when starting the container:
+```bash
+# Docker
+docker run -e JWT_SECRET_KEY="your-secure-secret-key" jellynouncer
+
+# Docker Compose
+environment:
+  - JWT_SECRET_KEY=your-secure-secret-key
+```
+
+2. Generate an emergency access token:
+```python
+import jwt
+from datetime import datetime, timedelta
+
+secret = "your-secure-secret-key"  # Same as JWT_SECRET_KEY
+payload = {
+    "user_id": 1,  # Admin is usually user ID 1
+    "username": "admin",
+    "type": "access",
+    "exp": datetime.utcnow() + timedelta(minutes=30)
+}
+token = jwt.encode(payload, secret, algorithm="HS256")
+print(f"Bearer {token}")
+```
+
+3. Use the token to disable authentication or create a new admin:
+```bash
+# Disable authentication temporarily
+curl -X PUT "http://localhost:1985/api/auth/settings?auth_enabled=false&require_webhook_auth=false" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+
+# Or create a new admin account
+curl -X POST "http://localhost:1985/api/auth/register" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"username": "newadmin", "password": "newpassword", "email": "admin@example.com"}'
+```
+
+**Option 2: Direct Database Access**
+
+Access the SQLite database directly:
+```bash
+# From host system (adjust path as needed)
+sqlite3 /path/to/data/web_interface.db
+
+# Disable authentication
+UPDATE security_settings SET auth_enabled = 0 WHERE id = 1;
+
+# Or delete all users to trigger setup mode
+DELETE FROM users;
+```
+
+**Option 3: Reset Everything**
+
+Delete the web interface database to start fresh:
+```bash
+# This will reset all web interface settings and users
+rm /path/to/data/web_interface.db
+# Restart the container
+docker restart jellynouncer
+```
 
 </details>
 

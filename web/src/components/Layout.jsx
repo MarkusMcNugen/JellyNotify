@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import ConnectionStatus from './ConnectionStatus';
 import DarkModeToggle from './DarkModeToggle';
 import AuthSetup from './AuthSetup';
+import PasswordReset from './PasswordReset';
 import { Icon, IconDuotone, IconLight } from './FontAwesomeIcon';
 import logger from '../services/logger';
 
@@ -13,6 +14,7 @@ const Layout = () => {
   const { isAuthenticated, logout, user, authRequired } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showAuthSetup, setShowAuthSetup] = useState(false);
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
 
   const navigation = [
     { name: 'Overview', href: '/', icon: 'home', style: 'duotone' },
@@ -103,13 +105,22 @@ const Layout = () => {
                   </button>
                 )}
                 {authRequired && (
-                  <button
-                    onClick={handleLogout}
-                    className="p-2 text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-300"
-                    title="Logout"
-                  >
-                    <IconDuotone icon="sign-out-alt" size="sm" />
-                  </button>
+                  <>
+                    <button
+                      onClick={() => setShowPasswordReset(true)}
+                      className="p-2 text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
+                      title="Change Password"
+                    >
+                      <IconDuotone icon="key" size="sm" />
+                    </button>
+                    <button
+                      onClick={handleLogout}
+                      className="p-2 text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-300"
+                      title="Logout"
+                    >
+                      <IconDuotone icon="sign-out-alt" size="sm" />
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -168,16 +179,26 @@ const Layout = () => {
                   </button>
                 )}
                 {authRequired && (
-                  <button
-                    onClick={handleLogout}
-                    className="p-2 text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-300"
-                    title="Logout"
-                  >
-                    <IconDuotone icon="sign-out-alt" size="sm" />
-                </button>
+                  <>
+                    <button
+                      onClick={() => setShowPasswordReset(true)}
+                      className="p-2 text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
+                      title="Change Password"
+                    >
+                      <IconDuotone icon="key" size="sm" />
+                    </button>
+                    <button
+                      onClick={handleLogout}
+                      className="p-2 text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-300"
+                      title="Logout"
+                    >
+                      <IconDuotone icon="sign-out-alt" size="sm" />
+                    </button>
+                  </>
+                )}
               </div>
             </div>
-          )}
+          </div>
         </div>
       </nav>
 
@@ -229,6 +250,11 @@ const Layout = () => {
       {/* Auth Setup Modal */}
       {showAuthSetup && (
         <AuthSetup onClose={() => setShowAuthSetup(false)} />
+      )}
+      
+      {/* Password Reset Modal */}
+      {showPasswordReset && (
+        <PasswordReset onClose={() => setShowPasswordReset(false)} />
       )}
     </div>
   );
