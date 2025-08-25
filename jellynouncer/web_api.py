@@ -75,8 +75,8 @@ if not os.path.exists(LOG_DIR):
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# JWT token handler
-security = HTTPBearer()
+# JWT token handler - auto_error=False to allow optional authentication
+security = HTTPBearer(auto_error=False)
 
 # Logger setup with extensive debug logging - uses separate web log file
 logger = get_web_logger("jellynouncer.web_api")
@@ -459,32 +459,47 @@ async def get_current_user_optional(credentials: Optional[HTTPAuthorizationCrede
 
 async def check_auth_required(user: Optional[Dict[str, Any]] = Depends(get_current_user_optional)) -> Optional[Dict[str, Any]]:
     """Check if authentication is required and validate user"""
+    logger.info(f"[AUTH_CHECK] Starting auth check - user provided: {user is not None}")
+    
     try:
-        # Use the global web_service's database manager instead of creating a new one
+        # Check if web_service is initialized
+        if not web_service:
+            logger.error("[AUTH_CHECK] web_service is None!")
+            return None
+            
+        if not web_service.web_db:
+            logger.error("[AUTH_CHECK] web_service.web_db is None!")
+            return None
+        
+        logger.debug("[AUTH_CHECK] Getting security settings from database...")
         settings = await web_service.web_db.get_security_settings()
         
-        logger.debug(f"Auth check - settings: {settings}, user present: {user is not None}")
+        logger.info(f"[AUTH_CHECK] Security settings retrieved: {settings}")
         
-        if settings.get("auth_enabled", False):
+        auth_enabled = settings.get("auth_enabled", False)
+        logger.info(f"[AUTH_CHECK] Auth enabled: {auth_enabled}, User present: {user is not None}")
+        
+        if auth_enabled:
             if not user:
-                logger.debug("Authentication required but no valid user token provided")
+                logger.warning("[AUTH_CHECK] Authentication required but no valid user token provided")
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Authentication required",
                     headers={"WWW-Authenticate": "Bearer"},
                 )
+            logger.info(f"[AUTH_CHECK] Auth required and user authenticated: {user.get('username', 'unknown')}")
             return user
         
         # Auth not required, return None or user if provided
-        logger.debug(f"Auth not required, returning user: {user is not None}")
+        logger.info(f"[AUTH_CHECK] Auth not required, allowing access. User: {user is not None}")
         return user
-    except HTTPException:
-        # Re-raise HTTP exceptions
+    except HTTPException as he:
+        logger.error(f"[AUTH_CHECK] HTTPException raised: {he.status_code} - {he.detail}")
         raise
     except Exception as e:
-        logger.error(f"Error checking auth requirements: {e}", exc_info=True)
+        logger.error(f"[AUTH_CHECK] Unexpected error in auth check: {type(e).__name__}: {e}", exc_info=True)
         # On error, default to no auth required - return None to allow access
-        logger.warning("Auth check failed, defaulting to no auth required")
+        logger.warning("[AUTH_CHECK] Auth check failed with error, defaulting to no auth required")
         return None
 
 
@@ -1336,7 +1351,14 @@ async def register(user_create: UserCreate, current_user: Optional[Dict] = Depen
 @app.get("/api/overview", response_model=OverviewStats)
 async def get_overview(current_user: Optional[Dict] = Depends(check_auth_required)):
     """Get overview statistics"""
-    return await web_service.get_overview_stats()
+    logger.info(f"[ENDPOINT] /api/overview called - user: {current_user.get('username') if current_user else 'anonymous'}")
+    try:
+        result = await web_service.get_overview_stats()
+        logger.info(f"[ENDPOINT] /api/overview returning stats successfully")
+        return result
+    except Exception as e:
+        logger.error(f"[ENDPOINT] /api/overview failed: {type(e).__name__}: {e}", exc_info=True)
+        raise
 
 
 @app.get("/api/config")
