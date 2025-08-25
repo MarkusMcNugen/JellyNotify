@@ -61,3 +61,5 @@ node_modules/
 /test-api-calls.js
 /test-overview-api.js
 /web_interface.db
+/web/test-detailed.js
+/web/test-route-debug.js
