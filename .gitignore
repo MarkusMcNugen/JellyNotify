@@ -72,3 +72,7 @@ node_modules/
 /overview-test.png
 /templates-test.png
 /tests/test-ui.spec.js
+/config-fixed.png
+/overview-fixed.png
+/templates-fixed.png
+/tests/test-fixes.spec.js
