@@ -7,8 +7,12 @@ import { FixedSizeList as VirtualList } from 'react-window'
 import logger from '../services/logger'
 
 const Logs = () => {
+  logger.info('[COMPONENT] Logs: Starting component initialization');
+  
   const [logFile, setLogFile] = useState('jellynouncer.log')
   const [lines, setLines] = useState(500)
+  
+  logger.debug('[COMPONENT] Logs: State hooks initialized');
   const [level, setLevel] = useState('')
   const [component, setComponent] = useState('')
   const [search, setSearch] = useState('')

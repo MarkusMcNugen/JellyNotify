@@ -8,6 +8,15 @@ import Templates from './pages/Templates'
 import Logs from './pages/Logs'
 import { useEffect, useState } from 'react'
 import logger from './services/logger'
+import RouteLogger from './components/RouteLogger'
+import withLifecycleLogging from './utils/withLifecycleLogging'
+
+// Wrap page components with lifecycle logging
+const LoggedOverview = withLifecycleLogging(Overview, 'Overview');
+const LoggedConfig = withLifecycleLogging(Config, 'Config');
+const LoggedTemplates = withLifecycleLogging(Templates, 'Templates');
+const LoggedLogs = withLifecycleLogging(Logs, 'Logs');
+const LoggedLayout = withLifecycleLogging(Layout, 'Layout');
 
 function App() {
   const { isAuthenticated, authRequired, checkAuth } = useAuthStore()
@@ -67,15 +76,18 @@ function App() {
   }
 
   return (
-    <Layout>
+    <>
+      <RouteLogger />
       <Routes>
-        <Route path="/" element={<Overview />} />
-        <Route path="/config" element={<Config />} />
-        <Route path="/templates" element={<Templates />} />
-        <Route path="/logs" element={<Logs />} />
+        <Route path="/" element={<LoggedLayout />}>
+          <Route index element={<LoggedOverview />} />
+          <Route path="config" element={<LoggedConfig />} />
+          <Route path="templates" element={<LoggedTemplates />} />
+          <Route path="logs" element={<LoggedLogs />} />
+        </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </Layout>
+    </>
   )
 }
 

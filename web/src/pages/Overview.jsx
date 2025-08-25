@@ -40,12 +40,16 @@ ChartJS.register(
 );
 
 const Overview = () => {
+  logger.info('[COMPONENT] Overview: Starting component initialization');
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [stats, setStats] = useState(null);
   const [health, setHealth] = useState(null);
   const [recentNotifications, setRecentNotifications] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  
+  logger.debug('[COMPONENT] Overview: State hooks initialized');
 
   const fetchData = async () => {
     logger.debug('Overview: Starting fetchData', { 

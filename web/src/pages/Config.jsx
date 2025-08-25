@@ -21,8 +21,12 @@ import { apiClient } from '../utils/apiClient';
 import logger from '../services/logger';
 
 const Config = () => {
+  logger.info('[COMPONENT] Config: Starting component initialization');
+  
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  
+  logger.debug('[COMPONENT] Config: State hooks initialized');
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [activeTab, setActiveTab] = useState('jellyfin');

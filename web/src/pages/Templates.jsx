@@ -7,8 +7,12 @@ import toast from 'react-hot-toast'
 import logger from '../services/logger'
 
 const Templates = () => {
+  logger.info('[COMPONENT] Templates: Starting component initialization');
+  
   const [selectedTemplate, setSelectedTemplate] = useState(null)
   const [editorContent, setEditorContent] = useState('')
+  
+  logger.debug('[COMPONENT] Templates: State hooks initialized');
   const [showCheatsheet, setShowCheatsheet] = useState(false)
   const [isModified, setIsModified] = useState(false)
   const [theme, setTheme] = useState(() => {
