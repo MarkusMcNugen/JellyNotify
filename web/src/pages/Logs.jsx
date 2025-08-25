@@ -5,7 +5,7 @@ import { Icon, IconDuotone, IconLight } from '../components/FontAwesomeIcon'
 import { parseLogText, filterLogs, getLogStatistics, formatLogForDisplay, exportLogs, LOG_LEVEL_COLORS } from '../utils/logParser'
 import { FixedSizeList as VirtualList } from 'react-window'
 import logger from '../services/logger'
-import { AlertCircle, AlertTriangle, Info } from 'lucide-react'
+// Removed unused lucide-react import - using FontAwesome icons instead
 
 const Logs = () => {
   logger.info('[COMPONENT] Logs: Starting component initialization');
@@ -78,14 +78,14 @@ const Logs = () => {
       case 'ERROR':
       case 'CRITICAL':
       case 'FATAL':
-        return <IconDuotone icon="exclamation-circle" size="xs" color="text-red-500" />
+        return <IconDuotone icon="exclamation-circle" size="xs" className="text-red-500" />
       case 'WARNING':
       case 'WARN':
-        return <IconDuotone icon="exclamation-triangle" size="xs" color="text-yellow-500" />
+        return <IconDuotone icon="exclamation-triangle" size="xs" className="text-yellow-500" />
       case 'INFO':
-        return <IconDuotone icon="info-circle" size="xs" color="text-blue-500" />
+        return <IconDuotone icon="info-circle" size="xs" className="text-blue-500" />
       case 'DEBUG':
-        return <IconDuotone icon="bug" size="xs" color="text-gray-500" />
+        return <IconDuotone icon="bug" size="xs" className="text-gray-500" />
       default:
         return null
     }

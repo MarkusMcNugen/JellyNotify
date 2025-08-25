@@ -609,11 +609,11 @@ class SyncProgressDisplay:
         elif self.unicode_level == 'unicode':
             # Unicode without emojis
             self.logger.info("╭────────────────────────────────────────────────────────────╮")
-            self.logger.info(f"│ {icon['start']} Library Sync Started ({self.sync_type.title()} Sync)      │")
+            self.logger.info(f"│ {icon['start']} Library Sync Started ({self.sync_type.title()} Sync)    │")
             self.logger.info("├────────────────────────────────────────────────────────────┤")
-            self.logger.info(f"│ {icon['stats']} Total items: {self.total_items:,}".ljust(62) + "│")
-            self.logger.info(f"│ {icon['batch']} Batch size: {self.batch_size} (adaptive)".ljust(62) + "│")
-            self.logger.info(f"│ {icon['speed']} Mode: Streaming (producer-consumer)".ljust(62) + "│")
+            self.logger.info(f"│ {icon['stats']} Total items: {self.total_items:,}".ljust(60) + "│")
+            self.logger.info(f"│ {icon['batch']} Batch size: {self.batch_size} (adaptive)".ljust(60) + "│")
+            self.logger.info(f"│ {icon['speed']} Mode: Streaming (producer-consumer)".ljust(60) + "│")
             self.logger.info("╰────────────────────────────────────────────────────────────╯")
         else:
             # ASCII fallback
@@ -674,7 +674,7 @@ class SyncProgressDisplay:
         tree = self.chars
         
         # Log progress with colors and proper spacing
-        self.logger.debug(f"Sync Progress: {progress_bar}")
+        self.logger.info(f"Sync Progress: {progress_bar}")
         
         # Format lines with consistent spacing
         if self.unicode_level == 'full' or self.unicode_level == 'unicode':
@@ -718,7 +718,7 @@ class SyncProgressDisplay:
             status_line = f"{status_icon}  {status_text}: {self.items_processed:,} items in {SyncProgressDisplay._format_time(elapsed)}"
             # Color codes don't take visual space, so calculate padding without them
             visual_length = len(status_line) + 1  # +1 for emoji width
-            padding_needed = 64 - visual_length
+            padding_needed = 62 - visual_length
             self.logger.info(f"│ {status_color}{status_line}{self.reset}{' ' * padding_needed}│")
             
             self.logger.info("├────────────────────────────────────────────────────────────────┤")
@@ -732,17 +732,17 @@ class SyncProgressDisplay:
             
             for emoji, text in stats_lines:
                 line_content = f"{emoji}  {text}"  # Two spaces after emoji
-                padding = 64 - len(line_content) + 1  # +1 for emoji width
+                padding = 64 - len(line_content) + 2  # +2 for emoji width
                 self.logger.info(f"│ {line_content}{' ' * padding}│")
             
             self.logger.info("╰────────────────────────────────────────────────────────────────╯")
         elif self.unicode_level == 'unicode':
             self.logger.info("╭────────────────────────────────────────────────────────────╮")
-            self.logger.info(f"│ {status_icon} {status_color}{status_text}: {self.items_processed:,} items in {SyncProgressDisplay._format_time(elapsed)}{self.reset}".ljust(62 + len(status_color) + len(self.reset)) + "│")
+            self.logger.info(f"│ {status_icon} {status_color}{status_text}: {self.items_processed:,} items in {SyncProgressDisplay._format_time(elapsed)}{self.reset}".ljust(60 + len(status_color) + len(self.reset)) + "│")
             self.logger.info("├────────────────────────────────────────────────────────────┤")
-            self.logger.info(f"│ {icon['new']} New items: {self.new_items:,}".ljust(62) + "│")
-            self.logger.info(f"│ {icon['update']} Updated: {self.updated_items:,}".ljust(62) + "│")
-            self.logger.info(f"│ {icon['error']} Errors: {self.errors:,}".ljust(62) + "│")
+            self.logger.info(f"│ {icon['new']} New items: {self.new_items:,}".ljust(60) + "│")
+            self.logger.info(f"│ {icon['update']} Updated: {self.updated_items:,}".ljust(60) + "│")
+            self.logger.info(f"│ {icon['error']} Errors: {self.errors:,}".ljust(60) + "│")
             self.logger.info("╰────────────────────────────────────────────────────────────╯")
         else:
             self.logger.info("+------------------------------------------------------------+")

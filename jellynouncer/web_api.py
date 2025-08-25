@@ -1113,15 +1113,17 @@ class WebInterfaceService:
                 lines = f.readlines()[-query.lines:]
                 
                 for line in lines:
-                    # Parse log line (format: timestamp - level - component - message)
-                    parts = line.strip().split(' - ', 3)
+                    # Parse log line (format: [timestamp][level][component] message)
+                    # Example: [2025-08-25 05:34:10 UTC][INFO][jellynouncer] Log message
+                    import re
+                    match = re.match(r'\[([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\]\s*(.*)', line.strip())
                     
-                    if len(parts) >= 4:
+                    if match:
                         log_entry = {
-                            "timestamp": parts[0],
-                            "level": parts[1],
-                            "component": parts[2],
-                            "message": parts[3]
+                            "timestamp": match.group(1),
+                            "level": match.group(2),
+                            "component": match.group(3),
+                            "message": match.group(4)
                         }
                         
                         # Apply filters
@@ -1133,6 +1135,15 @@ class WebInterfaceService:
                             continue
                         
                         logs.append(log_entry)
+                    else:
+                        # For lines that don't match the pattern, include as-is
+                        if not query.level and not query.component:
+                            logs.append({
+                                "timestamp": "",
+                                "level": "INFO",
+                                "component": "",
+                                "message": line.strip()
+                            })
                 
         except Exception as e:
             self.logger.error(f"Failed to read logs: {e}")
