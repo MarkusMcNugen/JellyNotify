@@ -4,7 +4,7 @@ import { useAuthStore } from '../stores/authStore';
 import toast from 'react-hot-toast';
 import logger from '../services/logger';
 
-const AuthSetup = ({ onClose }) => {
+const AuthSetup = ({ onClose, onComplete }) => {
   const [step, setStep] = useState(1); // 1: intro, 2: create account, 3: confirm, 4: complete
   const [formData, setFormData] = useState({
     username: '',
@@ -68,10 +68,17 @@ const AuthSetup = ({ onClose }) => {
         toast.success('Authentication enabled! Please log in with your new credentials.');
         setStep(4);
         
-        // Force logout and redirect to login after a short delay
-        setTimeout(() => {
-          window.location.href = '/login';
-        }, 2000);
+        // If we have an onComplete callback, use it instead of redirecting
+        if (onComplete) {
+          setTimeout(() => {
+            onComplete();
+          }, 2000);
+        } else {
+          // Default behavior: Force logout and redirect to login after a short delay
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 2000);
+        }
       } else {
         toast.error('Failed to enable authentication');
         logger.error('AuthSetup: Failed to enable authentication');

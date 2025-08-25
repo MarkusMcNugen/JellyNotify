@@ -23,6 +23,8 @@ import Tooltip from '../components/Tooltip';
 import LabelWithTooltip from '../components/LabelWithTooltip';
 import { configDescriptions } from '../utils/configDescriptions';
 import logger from '../services/logger';
+import AuthEnableModal from '../components/AuthEnableModal';
+import AuthSetup from '../components/AuthSetup';
 
 const Config = () => {
   logger.info('[COMPONENT] Config: Starting component initialization');
@@ -38,6 +40,8 @@ const Config = () => {
   const [sslFile, setSslFile] = useState(null);
   const [sslKeyFile, setSslKeyFile] = useState(null);
   const [showWebhookToken, setShowWebhookToken] = useState(false);
+  const [showAuthEnableModal, setShowAuthEnableModal] = useState(false);
+  const [showAuthSetup, setShowAuthSetup] = useState(false);
   
   const [config, setConfig] = useState({
     jellyfin: {
@@ -953,7 +957,26 @@ const Config = () => {
                     <input
                       type="checkbox"
                       checked={config.web_interface.auth_enabled}
-                      onChange={(e) => handleInputChange('web_interface', 'auth_enabled', e.target.checked)}
+                      onChange={async (e) => {
+                        const shouldEnable = e.target.checked;
+                        
+                        if (shouldEnable) {
+                          // Check if admin account exists before enabling auth
+                          try {
+                            const authStatus = await apiClient.get('/api/auth/status');
+                            if (!authStatus.data.has_admin) {
+                              // No admin account, show modal
+                              setShowAuthEnableModal(true);
+                              return; // Don't enable auth yet
+                            }
+                          } catch (err) {
+                            console.error('Failed to check auth status:', err);
+                          }
+                        }
+                        
+                        // Either disabling auth or admin exists, proceed normally
+                        handleInputChange('web_interface', 'auth_enabled', shouldEnable);
+                      }}
                       className="rounded border-gray-300 text-purple-600 shadow-sm focus:border-purple-500 focus:ring-purple-500"
                     />
                     <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -1285,6 +1308,38 @@ const Config = () => {
       {/* Webhook Token Modal */}
       {showWebhookToken && (
         <WebhookTokenDisplay onClose={() => setShowWebhookToken(false)} />
+      )}
+      
+      {/* Auth Enable Warning Modal */}
+      <AuthEnableModal
+        isOpen={showAuthEnableModal}
+        onClose={() => setShowAuthEnableModal(false)}
+        onProceedToSetup={() => {
+          setShowAuthEnableModal(false);
+          setShowAuthSetup(true);
+        }}
+      />
+      
+      {/* Auth Setup Modal */}
+      {showAuthSetup && (
+        <AuthSetup 
+          onComplete={async () => {
+            setShowAuthSetup(false);
+            // After setup, auth is already enabled by AuthSetup component
+            // Update our local config state to reflect this
+            setConfig(prevConfig => ({
+              ...prevConfig,
+              web_interface: {
+                ...prevConfig.web_interface,
+                auth_enabled: true
+              }
+            }));
+            
+            // The AuthSetup component will handle the redirect to login
+            // No need to save config here as auth is already enabled on the backend
+          }}
+          onClose={() => setShowAuthSetup(false)}
+        />
       )}
     </div>
   );

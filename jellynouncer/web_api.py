@@ -628,6 +628,58 @@ async def get_current_user_optional(credentials: Optional[HTTPAuthorizationCrede
         return None
 
 
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Security(security)) -> Dict[str, Any]:
+    """Validate JWT token and return user, raises exception if not authenticated"""
+    if not credentials:
+        logger.debug("No credentials provided, authentication required")
+        raise HTTPException(
+            status_code=401,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        
+    token = credentials.credentials
+    logger.debug(f"Validating required JWT token (length: {len(token)} chars)")
+    
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        
+        token_type = payload.get("type")
+        if token_type != "access":
+            logger.debug(f"Invalid token type: {token_type}, expected 'access'")
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid token type",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        user_id = payload.get("user_id")
+        username = payload.get("username")
+        logger.debug(f"Token validated successfully for user {username} (ID: {user_id})")
+        return payload
+    except jwt.ExpiredSignatureError:
+        logger.warning("JWT token has expired")
+        raise HTTPException(
+            status_code=401,
+            detail="Token has expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except jwt.InvalidTokenError as e:
+        logger.warning(f"Invalid JWT token: {str(e)}")
+        raise HTTPException(
+            status_code=401,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error validating JWT: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication error",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
 async def check_auth_required(user: Optional[Dict[str, Any]] = Depends(get_current_user_optional)) -> Optional[Dict[str, Any]]:
     """Check if authentication is required and validate user"""
     logger.info(f"[AUTH_CHECK] Starting auth check - user provided: {user is not None}")
@@ -1420,8 +1472,23 @@ async def get_auth_status():
     """Get authentication status (no auth required)"""
     logger.debug("Auth status check requested")
     settings = await web_service.web_db.get_security_settings()
-    logger.debug(f"Returning auth status: auth_enabled={settings.get('auth_enabled', False)}")
-    return settings
+    
+    # Check if any admin accounts exist
+    has_admin = False
+    try:
+        async with aiosqlite.connect(WEB_DB_PATH) as db:
+            cursor = await db.execute("SELECT COUNT(*) FROM users WHERE id = 1")
+            row = await cursor.fetchone()
+            has_admin = row[0] > 0 if row else False
+    except Exception as e:
+        logger.error(f"Error checking for admin account: {e}")
+        has_admin = False
+    
+    logger.debug(f"Returning auth status: auth_enabled={settings.get('auth_enabled', False)}, has_admin={has_admin}")
+    return {
+        **settings,
+        "has_admin": has_admin
+    }
 
 
 @app.post("/api/auth/setup")

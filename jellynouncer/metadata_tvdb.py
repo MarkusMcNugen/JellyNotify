@@ -303,6 +303,10 @@ class TVDB:
         """Close the client session."""
         if self.session and not self.session.closed:
             await self.session.close()
+    
+    async def cleanup(self) -> None:
+        """Clean up resources (alias for close for compatibility)."""
+        await self.close()
 
     def _clean_old_cache_entries(self) -> None:
         """Remove expired cache entries."""
