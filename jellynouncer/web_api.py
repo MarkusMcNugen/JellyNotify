@@ -112,6 +112,64 @@ class TokenResponse(BaseModel):
     expires_in: int
 
 
+class QueueStats(BaseModel):
+    """Model for queue statistics"""
+    pending: int = 0
+    processing: int = 0
+    completed: int = 0
+    failed: int = 0
+    processing_rate: float = 0
+
+
+class SystemHealth(BaseModel):
+    """Model for system health information"""
+    webhook_service: str = "stopped"
+    database: str = "disconnected"
+    last_sync: Optional[str] = None
+    database_size_mb: float = 0
+    uptime_hours: float = 0
+    uptime_percentage: float = 100
+    cpu_usage: float = 0
+    memory_usage: float = 0
+    disk_usage: float = 0
+
+
+class DiscordWebhookStatus(BaseModel):
+    """Model for Discord webhook status"""
+    configured: bool = False
+    last_used: Optional[str] = None
+    messages_sent: int = 0
+
+
+class RecentNotification(BaseModel):
+    """Model for recent notification entry"""
+    id: Optional[str] = None
+    name: str = "Unknown"
+    type: Optional[str] = None
+    event: Optional[str] = None
+    timestamp: Optional[str] = None
+
+
+class HistoricalStats(BaseModel):
+    """Model for historical statistics"""
+    hourly: List[Dict[str, Any]] = []
+    totals: Dict[str, Any] = {}
+    period_hours: int = 24
+
+
+class OverviewStats(BaseModel):
+    """Model for overview statistics response"""
+    total_items: int = 0
+    items_today: int = 0
+    items_week: int = 0
+    discord_webhooks: Dict[str, DiscordWebhookStatus] = {}
+    recent_notifications: List[RecentNotification] = []
+    queue_stats: QueueStats = QueueStats()
+    system_health: SystemHealth = SystemHealth()
+    jellyfin_stats: Optional[Dict[str, Any]] = None
+    historical_stats: Optional[HistoricalStats] = None
+
+
 class ConfigUpdate(BaseModel):
     """Model for configuration updates"""
     section: str
@@ -1258,11 +1316,11 @@ csp_policy = (
 )
 
 security_config = {
-    "rate_limit": 60,
+    "rate_limit": 300,  # 300 requests per minute (5 per second) - much more reasonable for interactive use
     "rate_window": 60,
     "max_auth_attempts": 5,
     "ban_duration": 30,
-    "exempt_paths": ["/webhook", "/health", "/api/health", "/api/auth/status"],
+    "exempt_paths": ["/webhook", "/health", "/api/health", "/api/auth/status", "/api/overview", "/api/config"],
     "enable_hsts": True,
     "enable_csp": True,
     "csp_policy": csp_policy
