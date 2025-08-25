@@ -114,16 +114,16 @@ const Logs = () => {
     return (
       <div 
         style={style} 
-        className={`flex items-center gap-2 px-4 py-1 hover:bg-dark-elevated/50 transition-colors ${formatted.rowClassName}`}
+        className={`flex items-start gap-2 px-4 py-1 hover:bg-dark-elevated/50 transition-colors ${formatted.rowClassName} overflow-hidden`}
       >
         {/* Timestamp */}
-        <span className="text-xs text-dark-text-muted font-mono min-w-[180px]">
+        <span className="text-xs text-dark-text-muted font-mono min-w-[180px] flex-shrink-0">
           {log.timestamp}
         </span>
         
         {/* Level */}
         <span 
-          className="flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold min-w-[80px] justify-center"
+          className="flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold min-w-[80px] justify-center flex-shrink-0"
           style={{ 
             color: formatted.level.color,
             backgroundColor: formatted.level.bgColor 
@@ -134,13 +134,14 @@ const Logs = () => {
         </span>
         
         {/* Component */}
-        <span className="text-xs text-jellyfin-purple font-mono min-w-[200px]">
+        <span className="text-xs text-jellyfin-purple font-mono min-w-[200px] flex-shrink-0 truncate">
           [{log.component}]
         </span>
         
-        {/* Message */}
+        {/* Message - with proper overflow handling */}
         <span 
-          className="flex-1 text-sm font-mono text-dark-text-primary"
+          className="flex-1 text-sm font-mono text-dark-text-primary break-all whitespace-pre-wrap overflow-wrap-anywhere"
+          style={{ wordBreak: 'break-word' }}
           dangerouslySetInnerHTML={{ 
             __html: search ? log.message.replace(
               new RegExp(`(${search})`, 'gi'), 
@@ -306,14 +307,14 @@ const Logs = () => {
             
             {stats.errorCount > 0 && (
               <div className="flex items-center gap-2 text-red-500">
-                <AlertCircle size={16} />
+                <IconDuotone icon="exclamation-circle" size="xs" />
                 <span>{stats.errorCount} errors</span>
               </div>
             )}
             
             {stats.warningCount > 0 && (
               <div className="flex items-center gap-2 text-yellow-500">
-                <AlertTriangle size={16} />
+                <IconDuotone icon="exclamation-triangle" size="xs" />
                 <span>{stats.warningCount} warnings</span>
               </div>
             )}
@@ -322,7 +323,7 @@ const Logs = () => {
       )}
       
       {/* Log Viewer */}
-      <div className="flex-1 bg-dark-bg">
+      <div className="flex-1 bg-dark-bg overflow-hidden">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <div className="spinner"></div>
@@ -332,16 +333,17 @@ const Logs = () => {
             ref={listRef}
             height={window.innerHeight - 200} // Adjust based on header height
             itemCount={parsedLogs.length}
-            itemSize={28} // Height of each log row
+            itemSize={40} // Increased height for wrapped text
             width="100%"
             className="scrollbar-thin scrollbar-thumb-dark-border scrollbar-track-dark-surface"
+            style={{ overflowX: 'hidden' }}
           >
             {LogRow}
           </VirtualList>
         ) : (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <Info size={48} className="text-dark-text-muted mx-auto mb-4" />
+              <IconLight icon="info-circle" size="3x" className="text-dark-text-muted mx-auto mb-4" />
               <p className="text-dark-text-secondary">No logs found</p>
               <p className="text-sm text-dark-text-muted mt-2">
                 Try adjusting your filters or refreshing

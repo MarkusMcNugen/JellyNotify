@@ -68,3 +68,7 @@ node_modules/
 /logs/jellynouncer-web.log
 /test_ui_issues.js
 /dashboard-issue.png
+/logs-test.png
+/overview-test.png
+/templates-test.png
+/tests/test-ui.spec.js

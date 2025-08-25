@@ -909,7 +909,10 @@ class WebInterfaceService:
             if historical_stats.get("totals"):
                 totals = historical_stats["totals"]
                 stats["total_items"] = totals.get("total_sent", 0)
-                stats["items_today"] = totals.get("total_new", 0) + totals.get("total_upgraded", 0)
+                # Ensure we handle None values properly
+                new_items = totals.get("total_new") or 0
+                upgraded_items = totals.get("total_upgraded") or 0
+                stats["items_today"] = new_items + upgraded_items
         except Exception as e:
             self.logger.warning(f"Could not get historical stats: {e}")
             stats["historical_stats"] = {"hourly": [], "totals": {}, "period_hours": 24}

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { apiService } from '../services/api'
 import Jinja2Editor from '../components/Jinja2Editor'
@@ -118,6 +118,15 @@ const Templates = () => {
       saveMutation.mutate({ name: selectedTemplate, content: editorContent })
     }
   }
+
+  // Auto-select first template when templates are loaded
+  useEffect(() => {
+    if (templates && templates.length > 0 && !selectedTemplate) {
+      const firstTemplate = templates[0].name;
+      logger.debug('Templates: Auto-selecting first template', { name: firstTemplate });
+      loadTemplate(firstTemplate);
+    }
+  }, [templates]); // Only depend on templates to avoid re-running
 
   return (
     <div className="h-full flex flex-col">
