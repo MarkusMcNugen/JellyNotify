@@ -15,6 +15,8 @@ const Templates = () => {
   logger.debug('[COMPONENT] Templates: State hooks initialized');
   const [showCheatsheet, setShowCheatsheet] = useState(false)
   const [isModified, setIsModified] = useState(false)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [newTemplateName, setNewTemplateName] = useState('')
   const [theme, setTheme] = useState(() => {
     // Check if dark mode is enabled
     return document.documentElement.classList.contains('dark') ? 'dark' : 'light'
@@ -71,6 +73,25 @@ const Templates = () => {
     }
   })
 
+  const createMutation = useMutation({
+    mutationFn: ({ name, content }) => {
+      logger.debug('Templates: Creating new template', { name });
+      return apiService.updateTemplate(name, content);
+    },
+    onSuccess: (_, { name }) => {
+      logger.info('Templates: Create successful');
+      toast.success('Template created successfully')
+      setShowCreateModal(false)
+      setNewTemplateName('')
+      void refetch()
+      void loadTemplate(name)
+    },
+    onError: (err) => {
+      logger.error('Templates: Create failed', err);
+      toast.error('Failed to create template')
+    }
+  })
+
   const loadTemplate = async (name) => {
     logger.debug('Templates: Loading template', { name });
     try {
@@ -119,8 +140,12 @@ const Templates = () => {
           <div className="p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-dark-text-secondary">Templates</h3>
-              <button className="p-1 hover:bg-dark-elevated rounded">
-                <IconLight icon="plus-circle" size="lg" color="text-gray-400 hover:text-purple-500" />
+              <button 
+                onClick={() => setShowCreateModal(true)}
+                className="p-1 hover:bg-dark-elevated rounded group"
+                title="Create new template"
+              >
+                <IconDuotone icon="plus-circle" size="lg" className="text-gray-400 group-hover:text-purple-500 transition-colors" />
               </button>
             </div>
             
@@ -322,6 +347,63 @@ const Templates = () => {
           )}
         </div>
       </div>
+      {/* Create Template Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+            <h2 className="text-xl font-bold text-white mb-4">
+              Create New Template
+            </h2>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Template Name
+              </label>
+              <input
+                type="text"
+                value={newTemplateName}
+                onChange={(e) => setNewTemplateName(e.target.value)}
+                placeholder="e.g., custom_notification.j2"
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                autoFocus
+              />
+              <p className="mt-1 text-xs text-gray-400">
+                Use .j2 extension for Jinja2 templates
+              </p>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  if (newTemplateName.trim()) {
+                    const templateName = newTemplateName.endsWith('.j2') 
+                      ? newTemplateName 
+                      : `${newTemplateName}.j2`;
+                    
+                    createMutation.mutate({
+                      name: templateName,
+                      content: `{# Custom template: ${templateName} #}\n{# Created: ${new Date().toISOString()} #}\n\n{{ item.name }}`
+                    });
+                  }
+                }}
+                disabled={!newTemplateName.trim() || createMutation.isPending}
+                className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white font-medium py-2 px-4 rounded transition-colors"
+              >
+                {createMutation.isPending ? 'Creating...' : 'Create'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setNewTemplateName('');
+                }}
+                className="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 font-medium py-2 px-4 rounded transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
